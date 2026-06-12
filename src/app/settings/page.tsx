@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -180,14 +180,65 @@ export default function SettingsPage() {
     llm,
     defaultResolution,
     defaultAspectRatio,
+    defaultImageModel,
+    defaultVideoModel,
     setProvider,
     setLLM,
     setDefaultResolution,
     setDefaultAspectRatio,
+    setDefaultImageModel,
+    setDefaultVideoModel,
   } = useSettingsStore();
 
   // 保存时的提示状态
   const [saved, setSaved] = useState(false);
+
+  // 可选模型列表（按启用平台从后端聚合拉取）
+  const [imageModels, setImageModels] = useState<{ id: string; name: string; provider: string }[]>([]);
+  const [videoModels, setVideoModels] = useState<{ id: string; name: string; provider: string }[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+
+  // 已启用且填了 key 的平台（用于拉取模型列表）
+  const enabledProviders = Object.entries(providers)
+    .filter(([, p]) => p.enabled && p.apiKey)
+    .map(([name, p]) => ({ name, apiKey: p.apiKey, baseUrl: p.baseUrl }));
+  // 用平台名集合作为依赖，避免每次渲染都重新请求
+  const enabledKey = enabledProviders.map((p) => p.name).sort().join(",");
+
+  // 启用平台变化时，拉取可选的生图/生视频模型
+  useEffect(() => {
+    if (enabledProviders.length === 0) {
+      setImageModels([]);
+      setVideoModels([]);
+      return;
+    }
+    let cancelled = false;
+    setModelsLoading(true);
+    const fetchModels = async (mediaType: "image" | "video") => {
+      const res = await fetch("/api/ai/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providers: enabledProviders, mediaType }),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.models ?? [];
+    };
+    Promise.all([fetchModels("image"), fetchModels("video")])
+      .then(([imgs, vids]) => {
+        if (cancelled) return;
+        setImageModels(imgs);
+        setVideoModels(vids);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setModelsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabledKey]);
 
   // LLM 连接测试状态
   const [llmTestStatus, setLlmTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
@@ -544,6 +595,52 @@ export default function SettingsPage() {
                           <SelectItem value="9:16">9:16 竖屏</SelectItem>
                           <SelectItem value="16:9">16:9 横屏</SelectItem>
                           <SelectItem value="1:1">1:1 方形</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* 默认生图模型 */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        默认生图模型
+                      </Label>
+                      <Select
+                        value={defaultImageModel}
+                        onValueChange={(val) => setDefaultImageModel(val ?? "")}
+                        disabled={imageModels.length === 0}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={modelsLoading ? "加载中..." : enabledProviders.length === 0 ? "请先启用 AI 平台" : "选择生图模型"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {imageModels.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* 默认生视频模型 */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        默认生视频模型
+                      </Label>
+                      <Select
+                        value={defaultVideoModel}
+                        onValueChange={(val) => setDefaultVideoModel(val ?? "")}
+                        disabled={videoModels.length === 0}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={modelsLoading ? "加载中..." : enabledProviders.length === 0 ? "请先启用 AI 平台" : "选择生视频模型"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {videoModels.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
