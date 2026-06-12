@@ -69,6 +69,13 @@ export interface ComposeConfig {
     strokeWidth?: number;
     position?: "bottom" | "center" | "top";
   };
+  /** 文字贴片：价格贴/卖点贴/标题贴，叠在画面上方区域（带货常见样式） */
+  overlays?: {
+    text: string;
+    style: "title" | "highlight" | "price";
+    startTime: number;
+    endTime: number;
+  }[];
 }
 
 export interface ClipInput {
@@ -215,6 +222,30 @@ export function buildComposeCommand(config: ComposeConfig): string {
 
     filterParts.push(`[${currentVideoStream}]${drawTexts}[${subtitleStream}]`);
     currentVideoStream = subtitleStream;
+  }
+
+  // 文字贴片：价格贴/卖点贴/标题贴（叠在画面上方，带货醒目样式）
+  if (config.overlays?.length) {
+    const ovFont = config.subtitle?.fontFile ?? resolveChineseFontFile();
+    const ovFontArg = ovFont ? `fontfile='${escapeDrawText(ovFont)}':` : "";
+    // 各样式：字号、字色、底框色、纵向位置（画面上方）
+    const styleOf = (style: "title" | "highlight" | "price") => {
+      if (style === "price")
+        return { size: Math.round(width * 0.075), color: "white", box: "red@0.85", y: "h*0.12" };
+      if (style === "highlight")
+        return { size: Math.round(width * 0.058), color: "#1a1a1a", box: "yellow@0.9", y: "h*0.2" };
+      return { size: Math.round(width * 0.06), color: "white", box: "black@0.5", y: "h*0.06" }; // title
+    };
+    const drawOverlays = config.overlays
+      .map((o) => {
+        const s = styleOf(o.style);
+        const bb = Math.round(s.size * 0.4);
+        return `drawtext=${ovFontArg}text='${escapeDrawText(o.text)}':fontsize=${s.size}:fontcolor=${s.color}:borderw=2:box=1:boxcolor=${s.box}:boxborderw=${bb}:x=(w-text_w)/2:y=${s.y}:enable='between(t,${o.startTime},${o.endTime})'`;
+      })
+      .join(",");
+    const ovStream = "ov_out";
+    filterParts.push(`[${currentVideoStream}]${drawOverlays}[${ovStream}]`);
+    currentVideoStream = ovStream;
   }
 
   // 构建完整命令

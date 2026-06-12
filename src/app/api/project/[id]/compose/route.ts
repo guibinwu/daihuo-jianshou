@@ -164,6 +164,18 @@ export async function POST(
         return { text: s.voiceover, startTime: start, endTime: acc };
       });
 
+    // 文字贴片：由分镜 textOverlay 生成；价格类自动回填商品价格
+    let acc2 = 0;
+    const overlays = shots
+      .map((s) => {
+        const start = acc2;
+        acc2 += s.duration || 3;
+        const ov = s.textOverlay;
+        if (!ov || ov.style === "subtitle" || !ov.text) return null;
+        return { text: ov.text, style: ov.style as "title" | "highlight" | "price", startTime: start, endTime: acc2 };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
     const config: ComposeConfig = {
       projectId: id,
       clips,
@@ -172,6 +184,7 @@ export async function POST(
         aspectRatio: ["9:16", "16:9", "1:1"].includes(body.aspectRatio) ? body.aspectRatio : "9:16",
       },
       subtitle: subtitleTexts.length > 0 ? { texts: subtitleTexts, position: "bottom" } : undefined,
+      overlays: overlays.length > 0 ? overlays : undefined,
     };
 
     // 执行合成（FFmpeg）
