@@ -278,17 +278,25 @@ export default function SettingsPage() {
   const [llmTestStatus, setLlmTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
 
   // 测试 LLM 连接
+  const [llmTestError, setLlmTestError] = useState("");
   const testLLMConnection = async () => {
     setLlmTestStatus("testing");
+    setLlmTestError("");
     try {
-      const res = await fetch(llm.baseUrl + "/models", {
-        headers: { Authorization: `Bearer ${llm.apiKey}` },
+      // 走服务端测试：浏览器直连厂商 API 会被 CORS 拦截而误报失败
+      const res = await fetch("/api/llm/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ baseUrl: llm.baseUrl, apiKey: llm.apiKey }),
       });
-      setLlmTestStatus(res.ok ? "success" : "error");
-    } catch {
+      const data = await res.json().catch(() => ({ ok: false }));
+      setLlmTestStatus(data.ok ? "success" : "error");
+      if (!data.ok) setLlmTestError(data.error || "连接失败");
+    } catch (e) {
       setLlmTestStatus("error");
+      setLlmTestError(e instanceof Error ? e.message : "连接失败");
     }
-    setTimeout(() => setLlmTestStatus("idle"), 3000);
+    setTimeout(() => setLlmTestStatus("idle"), 5000);
   };
 
   // 计算 AI 平台配置状态
@@ -568,6 +576,10 @@ export default function SettingsPage() {
                       {!llm.apiKey && (
                         <span className="text-xs text-muted-foreground ml-2">请先填写 API Key</span>
                       )}
+                      {llmTestStatus === "error" && llmTestError && (
+                        <p className="mt-2 text-xs text-destructive break-all">{llmTestError}</p>
+                      )}
+                      <p className="mt-2 text-[11px] text-muted-foreground">提示：连接测试走服务端，不受浏览器跨域限制；若失败，多为 baseUrl/Key/模型名填写有误。</p>
                     </div>
                   </div>
                 </CardContent>
