@@ -21,6 +21,8 @@ interface AssetItem {
   status: "pending" | "generating" | "done" | "failed";
   thumbnailUrl?: string;
   error?: string;
+  /** 素材是否为视频（已转动态镜头/图生视频） */
+  isVideo?: boolean;
 }
 
 // 镜头类型标签
@@ -58,7 +60,7 @@ function toEditVariant(modelId: string): string {
 
 export default function AssetsPage() {
   const { id } = useParams<{ id: string }>();
-  const { providers, defaultImageModel } = useSettingsStore();
+  const { providers, defaultImageModel, defaultVideoModel } = useSettingsStore();
 
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [productImages, setProductImages] = useState<string[]>([]);
@@ -66,6 +68,9 @@ export default function AssetsPage() {
   const [productSafe, setProductSafe] = useState(true);
   const [projectName, setProjectName] = useState("");
   const [modelTarget, setModelTarget] = useState<ImageModelTarget | null>(null);
+  const [videoModelTarget, setVideoModelTarget] = useState<ImageModelTarget | null>(null);
+  // 正在转动态镜头的分镜
+  const [motionShots, setMotionShots] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
@@ -178,6 +183,102 @@ export default function AssetsPage() {
       cancelled = true;
     };
   }, [providers, defaultImageModel]);
+
+  // 解析默认生视频模型对应的平台（用于「转动态镜头」）
+  useEffect(() => {
+    let cancelled = false;
+    const enabled = Object.entries(providers)
+      .filter(([, p]) => p.enabled && p.apiKey)
+      .map(([name, p]) => ({ name, apiKey: p.apiKey, baseUrl: p.baseUrl }));
+    if (enabled.length === 0 || !defaultVideoModel) {
+      setVideoModelTarget(null);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch("/api/ai/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ providers: enabled, mediaType: "video" }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const model = (data.models ?? []).find((m: { id: string }) => m.id === defaultVideoModel);
+        if (cancelled || !model) return;
+        const prov = enabled.find((e) => e.name === model.provider);
+        if (prov) {
+          setVideoModelTarget({ provider: prov.name, model: defaultVideoModel, apiKey: prov.apiKey, baseUrl: prov.baseUrl });
+        }
+      } catch {
+        // 忽略
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [providers, defaultVideoModel]);
+
+  // 转动态镜头：用该分镜已生成的图作首帧，调图生视频模型，结果存为该分镜素材（视频）
+  const generateMotion = useCallback(
+    async (shotId: number) => {
+      const asset = assets.find((a) => a.shotId === shotId);
+      if (!asset?.thumbnailUrl) return;
+      if (!videoModelTarget) {
+        setAssets((prev) =>
+          prev.map((a) => (a.shotId === shotId ? { ...a, error: "未配置默认生视频模型，请先在设置中选择" } : a))
+        );
+        return;
+      }
+      setMotionShots((prev) => new Set(prev).add(shotId));
+      try {
+        const res = await fetch("/api/ai/video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: videoModelTarget.provider,
+            model: videoModelTarget.model,
+            apiKey: videoModelTarget.apiKey,
+            baseUrl: videoModelTarget.baseUrl,
+            mode: "image-to-video",
+            prompt: asset.prompt || asset.description,
+            imageUrl: asset.thumbnailUrl,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "图生视频失败");
+        const url = data.videoUrls?.[0];
+        if (!url) throw new Error("生成结果为空");
+        // 存为该分镜素材（视频会被下载到本地），compose 会按视频片段处理（含原生音轨检测）
+        const saveRes = await fetch(`/api/project/${id}/assets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shotId, type: "ai_generate", sourceUrl: url,
+            prompt: asset.prompt, provider: videoModelTarget.provider, model: videoModelTarget.model,
+          }),
+        });
+        let savedUrl = url;
+        if (saveRes.ok) {
+          const saved = await saveRes.json();
+          if (saved.filePath) savedUrl = saved.filePath;
+        }
+        setAssets((prev) =>
+          prev.map((a) => (a.shotId === shotId ? { ...a, status: "done", thumbnailUrl: savedUrl, isVideo: true, error: undefined } : a))
+        );
+      } catch (e) {
+        setAssets((prev) =>
+          prev.map((a) => (a.shotId === shotId ? { ...a, error: e instanceof Error ? e.message : "图生视频失败" } : a))
+        );
+      } finally {
+        setMotionShots((prev) => {
+          const next = new Set(prev);
+          next.delete(shotId);
+          return next;
+        });
+      }
+    },
+    [assets, videoModelTarget, id]
+  );
 
   // 真实生成单个素材
   const generateOne = useCallback(
@@ -479,7 +580,7 @@ export default function AssetsPage() {
                               variant="outline"
                               size="sm"
                               className="text-xs w-24"
-                              disabled={asset.status === "generating"}
+                              disabled={asset.status === "generating" || motionShots.has(asset.shotId)}
                               onClick={() => generateOne(asset.shotId)}
                             >
                               {asset.status === "generating"
@@ -490,6 +591,25 @@ export default function AssetsPage() {
                                 ? "重试"
                                 : "生成素材"}
                             </Button>
+                          )}
+                          {/* 转动态镜头：已有图素材 → 图生视频（真实运镜）。商品特写镜头建议保持静态避免篡改 */}
+                          {asset.status === "done" && asset.thumbnailUrl && !asset.isVideo && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs w-24 text-muted-foreground hover:text-primary"
+                              disabled={motionShots.has(asset.shotId)}
+                              onClick={() => generateMotion(asset.shotId)}
+                              title="用这张图作首帧生成动态视频镜头（图生视频）"
+                            >
+                              {motionShots.has(asset.shotId) ? "转动态中..." : "🎬 转动态"}
+                            </Button>
+                          )}
+                          {asset.isVideo && (
+                            <span className="text-[10px] text-primary">✓ 动态镜头</span>
+                          )}
+                          {asset.error && (
+                            <span className="text-[10px] text-destructive max-w-24 text-center">{asset.error}</span>
                           )}
                         </div>
                       </div>
