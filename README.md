@@ -42,15 +42,18 @@
 
 ### 二、AI 素材生成（多模型聚合）
 
-一个接口聚合 5 大 AI 平台、20+ 主流模型：
+一个接口聚合 6 大生图/生视频平台 + OpenRouter LLM、30+ 主流模型：
 
 | 平台 | 图片模型 | 视频模型 | 特色 |
 |------|---------|---------|------|
 | **Atlas Cloud** ⭐推荐 | **GPT Image 2**, Seedream 5.0, Nano Banana 2 | **Seedance 2.0**(原生音频), Kling 3.0, Vidu Q3 | 一个 Key 聚合 LLM+生图+生视频，模型最全价格最优 |
-| **fal.ai** | FLUX.1/2 Pro, Recraft V4 | Kling 3.0 Pro, Veo 3, Hailuo 2.3, Luma Ray 2, Vidu Q2 | 模型全，Kling/Veo3 支持原生音频 |
-| **火山引擎** | Seedream 5.0/4.5/4.0 | Seedance 1.5 Pro | 字节系明星模型，电影级画质，速度快 |
+| **fal.ai** | **GPT Image 1.5**(+edit), FLUX.1/2 Pro, Recraft V4, Seedream V5 Edit | Kling 3.0 Pro, Veo 3, Hailuo 2.3, Luma Ray 2, Vidu Q2 | 模型全，含 OpenAI 生图与商品保真编辑 |
+| **Replicate** | FLUX 1.1 Pro/Kontext, Imagen 4, Seedream 4 | Kling v2.1, Seedance 1 Pro, Hailuo 02, Veo 3 Fast | 模型库最全，predictions API 统一调用 |
+| **火山引擎（方舟 Ark）** | Seedream 5.0/4.0 | Seedance 2.0/1.0 Pro(原生音频) | 字节系明星模型，电影级画质，速度快 |
 | **阿里百炼** | 通义万相 | 万相 2.6/2.5/2.2/2.1 | 商品图生视频效果好 |
 | **硅基流动** | Kolors, Qwen-Image | - | 国产高性价比 |
+
+> **LLM（脚本生成）** 走 OpenAI 兼容协议，内置 Atlas Cloud / **OpenRouter**(400+模型) / DeepSeek / Kimi / 智谱 / 豆包 / OpenAI 等一键预设。
 
 ### 三、4 种视频模式
 
