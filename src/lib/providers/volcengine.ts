@@ -1,7 +1,10 @@
 /**
- * 火山引擎 Provider 实现
- * 支持 Kling（可灵）和 Seedance（豆包）等模型
- * 文档参考: https://www.volcengine.com/docs/6791
+ * 火山引擎（方舟 Ark）Provider 实现
+ * 文档参考（官方）：
+ * - 图像（Seedream）同步：POST /api/v3/images/generations  https://www.volcengine.com/docs/82379/1541523
+ * - 视频（Seedance）异步：POST /api/v3/contents/generations/tasks + GET /tasks/{id}  https://www.volcengine.com/docs/82379/1366799
+ * 鉴权：Authorization: Bearer <ARK_API_KEY>
+ * 说明：旧的 visual.volcengineapi.com Visual 服务需 AK/SK 签名，已弃用，统一改走方舟 Ark。
  */
 
 import { BaseProvider, ProviderError } from './base'
@@ -17,44 +20,50 @@ import type {
   MediaType,
 } from './types'
 
-// ==================== 火山引擎 API 响应类型 ====================
+// ==================== Ark API 响应类型 ====================
 
-interface VolcResponse<T = unknown> {
-  code: number
-  message: string
-  data: T
+/** 图像生成响应（OpenAI 兼容：data[].url） */
+interface ArkImageResponse {
+  model?: string
+  data?: Array<{ url?: string; b64_json?: string; size?: string }>
+  images?: string[] // 个别文档返回 images 数组，做兼容
+  error?: { code?: string; message?: string }
 }
 
-interface VolcCreateTaskData {
-  task_id: string
+/** 视频任务创建响应 */
+interface ArkTaskCreateResponse {
+  id: string
+  error?: { code?: string; message?: string }
 }
 
-interface VolcTaskStatusData {
-  task_id: string
-  status: string
-  progress?: number
-  output?: {
-    image_urls?: string[]
-    video_url?: string
-    video_urls?: string[]
-    cover_url?: string
-    duration?: number
-  }
-  error_message?: string
-  error_code?: string
-  create_time?: string
-  update_time?: string
+/** 视频任务查询响应 */
+interface ArkTaskQueryResponse {
+  id: string
+  model?: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+  content?: { video_url?: string }
+  error?: { code?: string; message?: string }
 }
 
-interface VolcModelInfo {
-  model_id: string
-  model_name: string
-  description?: string
-  model_type: string
-  supported_modes?: string[]
+/** 把宽高映射为 Ark 视频 ratio */
+function toRatio(width?: number, height?: number): string {
+  const w = width ?? 0
+  const h = height ?? 0
+  if (w > h) return '16:9'
+  if (h > w) return '9:16'
+  if (w === h && w > 0) return '1:1'
+  return 'adaptive'
 }
 
-// ==================== Provider 实现 ====================
+/** 把宽高映射为 Ark 图像 size；超出 Ark 像素范围则回退 "2K"（由模型按 prompt 决定比例） */
+function toImageSize(width?: number, height?: number): string {
+  const w = width ?? 0
+  const h = height ?? 0
+  const total = w * h
+  // Ark 总像素范围 [2560x1440=3686400, 4096x4096=16777216]
+  if (total >= 3686400 && total <= 16777216) return `${w}x${h}`
+  return '2K'
+}
 
 export class VolcEngineProvider extends BaseProvider {
   readonly name = 'volcengine'
@@ -63,248 +72,195 @@ export class VolcEngineProvider extends BaseProvider {
   constructor(config: ProviderConfig) {
     super({
       ...config,
-      baseUrl: config.baseUrl || 'https://visual.volcengineapi.com',
+      baseUrl: config.baseUrl || 'https://ark.cn-beijing.volces.com/api/v3',
     })
   }
 
-  /**
-   * 获取认证头 - 火山引擎使用 Access Key 认证
-   */
+  /** 方舟 Ark 用 Bearer API Key 鉴权 */
   protected getAuthHeaders(): Record<string, string> {
-    return {
-      Authorization: `Bearer ${this.config.apiKey}`,
-    }
+    return { Authorization: `Bearer ${this.config.apiKey}` }
   }
 
   /**
-   * 生成图片
+   * 生成图片（Seedream，同步返回，无需轮询）
    */
   async generateImage(options: ImageOptions): Promise<ImageResult> {
-    const body = {
+    const body: Record<string, unknown> = {
       model: options.modelId,
       prompt: options.prompt,
-      negative_prompt: options.negativePrompt,
-      width: options.width ?? 1024,
-      height: options.height ?? 1024,
-      num: options.count ?? 1,
-      guidance_scale: options.guidanceScale,
-      steps: options.steps,
-      seed: options.seed,
-      ...(options.referenceImageUrl && {
-        reference_image: options.referenceImageUrl,
-      }),
+      size: toImageSize(options.width, options.height),
+      response_format: 'url',
+      watermark: false,
+      // 图生图/编辑：传 image（URL 或 base64）
+      ...(options.referenceImageUrl && { image: options.referenceImageUrl }),
       ...options.extra,
     }
 
-    const response = await this.request<VolcResponse<VolcCreateTaskData>>(
-      '/v1/image/generate',
-      { method: 'POST', body }
-    )
+    const resp = await this.request<ArkImageResponse>('/images/generations', {
+      method: 'POST',
+      body,
+    })
 
-    this.checkVolcResponse(response)
-
-    // 轮询等待结果
-    const finalStatus = await this.pollTaskStatus(response.data.task_id)
-
-    if (!finalStatus.result) {
-      throw new ProviderError('任务完成但未返回结果', 'NO_RESULT', this.name)
+    if (resp.error) {
+      throw new ProviderError(
+        `火山方舟图像生成失败: ${resp.error.message ?? resp.error.code}`,
+        resp.error.code ?? 'ARK_IMAGE_ERROR',
+        this.name
+      )
     }
 
-    // 状态接口不回显 model，用调用方的 modelId 回填
-    const result = finalStatus.result as ImageResult
-    result.modelId = options.modelId
-    return result
+    // 优先 data[].url，兼容 images[] 字符串数组
+    const urls = (resp.data?.map((d) => d.url).filter(Boolean) as string[]) ?? []
+    if (urls.length === 0 && Array.isArray(resp.images)) {
+      urls.push(...resp.images)
+    }
+    if (urls.length === 0) {
+      throw new ProviderError('图像生成成功但未返回 URL', 'NO_RESULT', this.name)
+    }
+
+    return {
+      taskId: 'sync',
+      imageUrls: urls,
+      modelId: options.modelId,
+    }
   }
 
   /**
-   * 生成视频
+   * 生成视频（Seedance，异步任务 + 轮询）
    */
   async generateVideo(options: VideoOptions): Promise<VideoResult> {
-    // 支持音频的模型将配音文案融入 prompt
-    let prompt = options.prompt
+    let text = options.prompt
     if (options.audioEnabled && options.voiceover) {
-      prompt = `${options.prompt}. 旁白: "${options.voiceover}"`
+      text = `${options.prompt}。旁白：「${options.voiceover}」`
     }
 
-    const body = {
+    // content：文本 + 可选首帧图（image_url）
+    const content: Array<Record<string, unknown>> = [{ type: 'text', text }]
+    if (options.firstFrameUrl) {
+      content.push({ type: 'image_url', image_url: { url: options.firstFrameUrl } })
+    }
+
+    const body: Record<string, unknown> = {
       model: options.modelId,
-      prompt,
-      negative_prompt: options.negativePrompt,
-      width: options.width,
-      height: options.height,
-      duration: options.duration,
-      fps: options.fps,
-      motion_strength: options.motionStrength,
-      guidance_scale: options.guidanceScale,
-      seed: options.seed,
-      ...(options.firstFrameUrl && {
-        first_frame_image: options.firstFrameUrl,
-      }),
-      ...(options.lastFrameUrl && {
-        last_frame_image: options.lastFrameUrl,
-      }),
-      ...(options.referenceVideoUrl && {
-        reference_video: options.referenceVideoUrl,
-      }),
-      // 音频参数透传
-      ...(options.audioEnabled && {
-        enable_audio: true,
-        ...(options.audioPrompt && { audio_prompt: options.audioPrompt }),
-      }),
+      content,
+      ratio: toRatio(options.width, options.height),
+      ...(options.duration != null && { duration: options.duration }),
+      generate_audio: options.audioEnabled ?? false,
+      watermark: false,
+      ...(options.seed != null && { seed: options.seed }),
       ...options.extra,
     }
 
-    const response = await this.request<VolcResponse<VolcCreateTaskData>>(
-      '/v1/video/generate',
+    const created = await this.request<ArkTaskCreateResponse>(
+      '/contents/generations/tasks',
       { method: 'POST', body }
     )
+    if (created.error || !created.id) {
+      throw new ProviderError(
+        `火山方舟视频任务创建失败: ${created.error?.message ?? '未返回任务 ID'}`,
+        created.error?.code ?? 'ARK_TASK_ERROR',
+        this.name
+      )
+    }
 
-    this.checkVolcResponse(response)
-
-    // 轮询等待结果
-    const finalStatus = await this.pollTaskStatus(response.data.task_id, {
-      interval: 5000,
-    })
-
+    const finalStatus = await this.pollTaskStatus(created.id, { interval: 5000 })
     if (!finalStatus.result) {
       throw new ProviderError('任务完成但未返回结果', 'NO_RESULT', this.name)
     }
-
-    // 状态接口不回显 model，用调用方的 modelId 回填
     const result = finalStatus.result as VideoResult
     result.modelId = options.modelId
     return result
   }
 
   /**
-   * 查询任务状态
+   * 查询任务状态（仅视频异步任务）
    */
   async getTaskStatus(taskId: string): Promise<TaskStatus> {
-    const response = await this.request<VolcResponse<VolcTaskStatusData>>(
-      `/v1/task/${taskId}`
+    const data = await this.request<ArkTaskQueryResponse>(
+      `/contents/generations/tasks/${taskId}`
     )
-
-    this.checkVolcResponse(response)
-
-    const data = response.data
     const status = this.mapStatus(data.status)
 
-    const taskStatus: TaskStatus = {
-      taskId: data.task_id,
-      status,
-      progress: data.progress,
-      createdAt: data.create_time,
-      updatedAt: data.update_time,
-    }
+    const taskStatus: TaskStatus = { taskId: data.id, status }
 
-    // 解析完成结果
-    if (status === 'completed' && data.output) {
-      if (data.output.image_urls && data.output.image_urls.length > 0) {
-        taskStatus.result = {
-          taskId: data.task_id,
-          imageUrls: data.output.image_urls,
-          modelId: '',
-        }
-      } else if (data.output.video_url || (data.output.video_urls && data.output.video_urls.length > 0)) {
-        taskStatus.result = {
-          taskId: data.task_id,
-          videoUrls: data.output.video_urls ?? [data.output.video_url!],
-          coverImageUrl: data.output.cover_url,
-          duration: data.output.duration,
-          modelId: '',
-        }
+    if (status === 'completed' && data.content?.video_url) {
+      taskStatus.result = {
+        taskId: data.id,
+        videoUrls: [data.content.video_url],
+        modelId: data.model ?? '',
+        hasAudio: undefined,
       }
     }
-
-    // 失败信息
     if (status === 'failed') {
-      taskStatus.error = data.error_message
-      taskStatus.errorCode = data.error_code
+      taskStatus.error = data.error?.message
+      taskStatus.errorCode = data.error?.code
     }
-
     return taskStatus
+  }
+
+  /** Ark 任务状态 → 统一状态 */
+  private mapStatus(s: ArkTaskQueryResponse['status']): TaskStatusEnum {
+    switch (s) {
+      case 'queued':
+        return 'pending'
+      case 'running':
+        return 'processing'
+      case 'succeeded':
+        return 'completed'
+      case 'failed':
+        return 'failed'
+      case 'cancelled':
+        return 'cancelled'
+      default:
+        return 'processing'
+    }
   }
 
   /**
    * 获取可用模型列表
+   * 火山方舟模型用 doubao- 前缀；也可在控制台创建推理接入点用 endpoint ID 调用。
+   * 来源：https://www.volcengine.com/docs/82379
    */
   async listModels(mediaType?: MediaType): Promise<Model[]> {
-    // 基于火山方舟官方文档和公开资料确认的模型列表（2026-03）
-    // 火山引擎使用 doubao- 前缀的模型标识符
-    // 注意：实际调用时需要在火山方舟控制台创建推理接入点（endpoint），使用 endpoint ID 调用
-    // 来源：https://www.volcengine.com/docs/82379/1330310
     const models: Model[] = [
-      // ==================== 视频生成 ====================
-      // --- Seedance 系列（字节豆包） ---
+      // ==================== 视频生成（Seedance） ====================
       {
-        id: 'doubao-seedance-1-5-pro-251215',
-        name: 'Seedance 1.5 Pro',
-        description: '字节豆包视频生成，电影级画质，1-10秒',
+        id: 'doubao-seedance-2-0-260128',
+        name: 'Seedance 2.0',
+        description: '字节豆包视频生成 2.0，电影级画质，支持原生音频',
+        modes: ['text-to-video', 'image-to-video'],
+        mediaType: 'video',
+        provider: this.name,
+        supportsAudio: true,
+      },
+      {
+        id: 'doubao-seedance-1-0-pro-250528',
+        name: 'Seedance 1.0 Pro',
+        description: '豆包视频 1.0 Pro，文/图生视频',
         modes: ['text-to-video', 'image-to-video'],
         mediaType: 'video',
         provider: this.name,
       },
-      // ==================== 图片生成 ====================
-      // --- Seedream 系列（字节豆包） ---
+      // ==================== 图片生成（Seedream） ====================
       {
-        id: 'doubao-seedream-5-0-lite',
-        name: 'Seedream 5.0 Lite',
-        description: '豆包最新图片生成模型 5.0 轻量版',
+        id: 'doubao-seedream-5-0-260128',
+        name: 'Seedream 5.0',
+        description: '豆包图像 5.0，强中文理解、排版与质感（带货商品图佳）',
         modes: ['text-to-image', 'image-to-image'],
         mediaType: 'image',
         provider: this.name,
       },
       {
-        id: 'doubao-seedream-4-5-251128',
-        name: 'Seedream 4.5',
-        description: '豆包图片生成 4.5',
-        modes: ['text-to-image', 'image-to-image'],
-        mediaType: 'image',
-        provider: this.name,
-      },
-      {
-        id: 'doubao-seedream-4-0',
+        id: 'doubao-seedream-4-0-250828',
         name: 'Seedream 4.0',
-        description: '豆包图片生成 4.0',
+        description: '豆包图像 4.0，多图参考输入，商品保真编辑',
         modes: ['text-to-image', 'image-to-image'],
         mediaType: 'image',
         provider: this.name,
       },
     ]
 
-    if (mediaType) {
-      return models.filter((m) => m.mediaType === mediaType)
-    }
-
+    if (mediaType) return models.filter((m) => m.mediaType === mediaType)
     return models
-  }
-
-  // ==================== 私有方法 ====================
-
-  /** 检查火山引擎 API 返回是否成功 */
-  private checkVolcResponse<T>(response: VolcResponse<T>): void {
-    if (response.code !== 0) {
-      throw new ProviderError(
-        `火山引擎 API 错误: ${response.message}`,
-        String(response.code),
-        this.name
-      )
-    }
-  }
-
-  /** 映射火山引擎任务状态 */
-  private mapStatus(volcStatus: string): TaskStatusEnum {
-    const statusMap: Record<string, TaskStatusEnum> = {
-      pending: 'pending',
-      queued: 'pending',
-      running: 'processing',
-      processing: 'processing',
-      success: 'completed',
-      succeeded: 'completed',
-      completed: 'completed',
-      failed: 'failed',
-      cancelled: 'cancelled',
-    }
-    return statusMap[volcStatus] ?? 'pending'
   }
 }
