@@ -2,12 +2,14 @@
 
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { useSettingsStore } from "@/lib/stores/settings-store";
 
 /** 分镜卡片数据 */
 interface StoryboardCard {
@@ -25,6 +27,9 @@ interface ProductImage {
 }
 
 export default function ClonePage() {
+  const router = useRouter();
+  const { llm } = useSettingsStore();
+
   // 视频链接与分析状态
   const [videoUrl, setVideoUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -35,60 +40,95 @@ export default function ClonePage() {
   const [productName, setProductName] = useState("");
   const [productFeatures, setProductFeatures] = useState("");
 
+  // 生成状态
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [genError, setGenError] = useState("");
+
   // 拖拽上传状态
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /** 模拟视频分析 */
+  /**
+   * 载入爆款通用结构参考。
+   * 说明：暂不支持解析具体视频画面内容（需视频下载+ASR管线），
+   * 这里展示的是高转化带货视频的通用分镜结构，AI 会在「开始复刻生成」时
+   * 结合该结构与你的商品信息真实生成脚本。
+   */
   const handleAnalyze = useCallback(async () => {
     if (!videoUrl.trim()) return;
     setIsAnalyzing(true);
     setStoryboards([]);
-
-    // 模拟 API 调用延迟
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // 模拟提取到的分镜数据
+    await new Promise((resolve) => setTimeout(resolve, 600));
     setStoryboards([
-      {
-        id: 1,
-        title: "开场吸引",
-        description: "产品特写镜头 + 痛点提问，快速抓住观众注意力",
-        duration: "0-3s",
-      },
-      {
-        id: 2,
-        title: "痛点放大",
-        description: "展示使用前的痛点场景，引起观众共鸣",
-        duration: "3-8s",
-      },
-      {
-        id: 3,
-        title: "产品展示",
-        description: "多角度展示产品外观、包装与核心卖点",
-        duration: "8-15s",
-      },
-      {
-        id: 4,
-        title: "使用演示",
-        description: "真实场景使用演示，突出产品效果与便捷性",
-        duration: "15-25s",
-      },
-      {
-        id: 5,
-        title: "效果对比",
-        description: "使用前后效果对比，增强说服力",
-        duration: "25-35s",
-      },
-      {
-        id: 6,
-        title: "促销转化",
-        description: "限时优惠信息 + 购买引导，促成下单行动",
-        duration: "35-40s",
-      },
+      { id: 1, title: "开场吸引", description: "产品特写 + 痛点提问，黄金3秒抓住注意力", duration: "0-3s" },
+      { id: 2, title: "痛点放大", description: "展示使用前的痛点场景，引起共鸣", duration: "3-8s" },
+      { id: 3, title: "产品展示", description: "多角度展示外观、包装与核心卖点", duration: "8-15s" },
+      { id: 4, title: "使用演示", description: "真实场景使用演示，突出效果与便捷", duration: "15-25s" },
+      { id: 5, title: "效果对比", description: "使用前后效果对比，增强说服力", duration: "25-35s" },
+      { id: 6, title: "促销转化", description: "限时优惠 + 购买引导，促成下单", duration: "35-40s" },
     ]);
     setIsAnalyzing(false);
   }, [videoUrl]);
+
+  /** 开始复刻生成：创建 clone 项目 + 真实生成脚本，然后跳转 */
+  const handleGenerate = useCallback(async () => {
+    if (isGenerating) return;
+    if (!llm.apiKey) {
+      setGenError("尚未配置 LLM，请先到「设置」填写 API Key");
+      return;
+    }
+    setGenError("");
+    setIsGenerating(true);
+    try {
+      // 1) 创建复刻项目（记录来源视频链接）
+      const projRes = await fetch("/api/project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${productName} 复刻`,
+          productName,
+          productDescription: productFeatures,
+          productImages: [],
+          sourceType: "clone",
+          sourceVideoUrl: videoUrl,
+        }),
+      });
+      if (!projRes.ok) throw new Error("项目创建失败");
+      const project = await projRes.json();
+
+      // 2) 生成脚本（参考爆款通用结构 + 商品信息）
+      const scriptRes = await fetch("/api/llm/script", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: project.id,
+          productName,
+          productDescription: productFeatures,
+          targetDuration: 40,
+          styleType: "auto",
+          videoMode: "product_closeup",
+          productImages: [],
+          referenceUrl: videoUrl,
+          llmConfig: {
+            baseUrl: llm.baseUrl,
+            apiKey: llm.apiKey,
+            model: llm.model,
+            visionModel: llm.visionModel,
+          },
+        }),
+      });
+      if (!scriptRes.ok) {
+        const e = await scriptRes.json().catch(() => ({}));
+        throw new Error(e.error || "脚本生成失败，请检查 LLM 设置");
+      }
+
+      // 3) 跳转到脚本页
+      router.push(`/project/${project.id}/script`);
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "复刻生成失败");
+      setIsGenerating(false);
+    }
+  }, [isGenerating, llm, productName, productFeatures, videoUrl, router]);
 
   /** 处理文件选择/上传 */
   const handleFiles = useCallback(
@@ -276,12 +316,15 @@ export default function ClonePage() {
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-medium text-foreground">
-                      提取到的脚本结构
+                      爆款通用结构（参考）
                     </h3>
                     <Badge variant="secondary" className="text-xs">
                       {storyboards.length} 个分镜
                     </Badge>
                   </div>
+                  <p className="text-xs text-muted-foreground -mt-1">
+                    暂不支持解析视频画面内容，以下为高转化带货视频的通用结构；AI 将据此并结合你的商品真实生成脚本。
+                  </p>
 
                   {/* 分镜卡片列表 */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -494,26 +537,42 @@ export default function ClonePage() {
         </div>
 
         {/* 底部操作按钮 */}
-        <div className="flex justify-center pb-10">
+        <div className="flex flex-col items-center pb-10 gap-3">
+          {genError && (
+            <p className="text-sm text-destructive">{genError}</p>
+          )}
           <Button
             size="lg"
             className="brand-gradient text-white px-10 text-base font-semibold"
-            disabled={!canGenerate}
+            disabled={!canGenerate || isGenerating}
+            onClick={handleGenerate}
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="mr-2"
-            >
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-            开始复刻生成
+            {isGenerating ? (
+              <>
+                <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                复刻生成中...
+              </>
+            ) : (
+              <>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-2"
+                >
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                开始复刻生成
+              </>
+            )}
           </Button>
         </div>
       </main>

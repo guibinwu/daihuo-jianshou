@@ -24,6 +24,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const db = getDb();
 
+    // 视频模式 / 来源类型做枚举白名单校验，非法值回退默认
+    const VIDEO_MODES = ["product_closeup", "graphic_montage", "scene_demo", "live_presenter"];
+    const videoMode = VIDEO_MODES.includes(body.videoMode) ? body.videoMode : undefined;
+    const sourceType = body.sourceType === "clone" ? "clone" : undefined;
+
     const newProject = await db
       .insert(projects)
       .values({
@@ -32,6 +37,9 @@ export async function POST(req: NextRequest) {
         productCategory: body.productCategory,
         productDescription: body.productDescription,
         productImages: body.productImages || [],
+        ...(videoMode && { videoMode }),
+        ...(sourceType && { sourceType }),
+        ...(body.sourceVideoUrl && { sourceVideoUrl: body.sourceVideoUrl }),
       })
       .returning();
 
