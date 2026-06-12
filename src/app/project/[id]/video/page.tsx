@@ -161,6 +161,7 @@ export default function VideoPage() {
     }, 200);
 
     try {
+      // 提交合成任务（后台异步），随后轮询状态
       const res = await fetch(`/api/project/${id}/compose`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -180,10 +181,37 @@ export default function VideoPage() {
         }),
       });
       const data = await res.json();
-      clearInterval(timer);
       if (!res.ok) throw new Error(data.error || "合成失败");
+
+      // 轮询合成状态，直到 done / failed（后台任务，避免长视频请求超时）
+      const url: string = await new Promise((resolve, reject) => {
+        const poll = setInterval(async () => {
+          try {
+            const r = await fetch(`/api/project/${id}/compose`);
+            const d = await r.json();
+            const c = d.composition;
+            if (!c) return;
+            if (c.status === "done" && c.url) {
+              clearInterval(poll);
+              resolve(c.url);
+            } else if (c.status === "failed") {
+              clearInterval(poll);
+              reject(new Error("合成失败，请检查素材后重试"));
+            }
+          } catch {
+            // 单次轮询失败忽略，继续重试
+          }
+        }, 3000);
+        // 兜底超时：5 分钟
+        setTimeout(() => {
+          clearInterval(poll);
+          reject(new Error("合成超时，请稍后在导出页查看"));
+        }, 300000);
+      });
+
+      clearInterval(timer);
       setComposeProgress(100);
-      setOutputUrl(data.url ?? null);
+      setOutputUrl(url);
       setComposeDone(true);
     } catch (e) {
       clearInterval(timer);

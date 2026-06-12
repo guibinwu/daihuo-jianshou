@@ -155,6 +155,30 @@ export async function POST(
       }
     }
 
+    // 廉价预检：至少一个分镜有可用素材（避免返回 202 后才发现没素材）
+    const hasAnyAsset = shots.some((s) => toLocalPath(assetByShot.get(s.shotId) ?? productImages[0]));
+    if (!hasAnyAsset) {
+      return NextResponse.json(
+        { error: "没有可用素材，请先在素材步骤生成素材或上传商品图" },
+        { status: 400 }
+      );
+    }
+
+    const outputCfg = {
+      resolution: (body.resolution === "720p" ? "720p" : "1080p") as "720p" | "1080p",
+      aspectRatio: (["9:16", "16:9", "1:1"].includes(body.aspectRatio) ? body.aspectRatio : "9:16") as "9:16" | "16:9" | "1:1",
+    };
+
+    // 立即建合成记录(composing)并返回；重活(TTS+FFmpeg)后台异步跑，前端轮询 GET 获取结果
+    const [comp] = await db
+      .insert(compositions)
+      .values({ projectId: id, resolution: outputCfg.resolution, aspectRatio: outputCfg.aspectRatio, status: "composing" })
+      .returning();
+    await db.update(projects).set({ status: "composing", updatedAt: new Date() }).where(eq(projects.id, id));
+
+    // 后台异步合成（不阻塞请求，避免长视频超时）
+    void (async () => {
+     try {
     // 构建渲染分镜：跳过无素材的；有 TTS 配音时按配音实际时长卡点（字幕/贴片/画面严格对齐）
     const rendered: { shot: Shot; clip: ClipInput; duration: number }[] = [];
     const missing: number[] = [];
@@ -190,12 +214,7 @@ export async function POST(
       rendered.push({ shot, clip, duration });
     }
 
-    if (rendered.length === 0) {
-      return NextResponse.json(
-        { error: "没有可用素材，请先在素材步骤生成素材或上传商品图" },
-        { status: 400 }
-      );
-    }
+    if (rendered.length === 0) throw new Error("没有可用素材");
 
     const clips = rendered.map((r) => r.clip);
 
@@ -217,37 +236,25 @@ export async function POST(
     const config: ComposeConfig = {
       projectId: id,
       clips,
-      output: {
-        resolution: body.resolution === "720p" ? "720p" : "1080p",
-        aspectRatio: ["9:16", "16:9", "1:1"].includes(body.aspectRatio) ? body.aspectRatio : "9:16",
-      },
+      output: outputCfg,
       subtitle: subtitleTexts.length > 0 ? { texts: subtitleTexts, position: "bottom" } : undefined,
       overlays: overlays.length > 0 ? overlays : undefined,
     };
 
-    // 执行合成（FFmpeg）
-    const outputPath = await composeVideo(config);
-    const fileName = outputPath.split("/").pop() ?? "";
-    const publicUrl = `/api/output/${id}/${fileName}`;
+        // 执行合成（FFmpeg）
+        const outputPath = await composeVideo(config);
+        // 完成：更新合成记录与项目状态
+        await db.update(compositions).set({ outputPath, status: "done" }).where(eq(compositions.id, comp.id));
+        await db.update(projects).set({ status: "done", updatedAt: new Date() }).where(eq(projects.id, id));
+      } catch (e) {
+        console.error("后台合成失败:", e);
+        await db.update(compositions).set({ status: "failed" }).where(eq(compositions.id, comp.id)).catch(() => {});
+        await db.update(projects).set({ status: "video", updatedAt: new Date() }).where(eq(projects.id, id)).catch(() => {});
+      }
+    })();
 
-    // 落库合成记录 + 更新项目状态
-    await db.insert(compositions).values({
-      projectId: id,
-      outputPath,
-      resolution: config.output.resolution,
-      aspectRatio: config.output.aspectRatio,
-      status: "done",
-    });
-    await db.update(projects).set({ status: "done", updatedAt: new Date() }).where(eq(projects.id, id));
-
-    return NextResponse.json({
-      success: true,
-      outputPath,
-      fileName,
-      url: publicUrl,
-      clipCount: clips.length,
-      missingShots: missing,
-    });
+    // 立即返回，前端轮询 GET /api/project/[id]/compose 直到 status=done/failed
+    return NextResponse.json({ compositionId: comp.id, status: "composing" }, { status: 202 });
   } catch (error) {
     console.error("视频合成失败:", error);
     return NextResponse.json(
