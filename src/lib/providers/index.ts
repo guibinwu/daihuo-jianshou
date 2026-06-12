@@ -7,6 +7,7 @@ import type { AIProvider, ProviderConfig, ProviderRegistration } from './types'
 import { AtlasCloudProvider } from './atlas-cloud'
 import { FalAIProvider } from './fal-ai'
 import { VolcEngineProvider } from './volcengine'
+import { ReplicateProvider } from './replicate'
 import { AlibabaProvider } from './alibaba'
 import { SiliconFlowProvider } from './siliconflow'
 
@@ -57,6 +58,13 @@ registerProvider({
   displayName: '硅基流动',
   description: '硅基流动推理平台，支持 FLUX、SD3.5、万相等多种开源模型',
   factory: (config) => new SiliconFlowProvider(config),
+})
+
+registerProvider({
+  name: 'replicate',
+  displayName: 'Replicate',
+  description: 'Replicate 模型聚合平台，支持 FLUX、Imagen、Kling、Seedance、Veo 等海量模型',
+  factory: (config) => new ReplicateProvider(config),
 })
 
 // ==================== 工厂函数 ====================

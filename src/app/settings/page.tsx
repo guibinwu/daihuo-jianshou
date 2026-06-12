@@ -50,6 +50,19 @@ const AI_PROVIDERS = [
     iconBg: "from-purple-500 to-pink-500",
   },
   {
+    key: "replicate",
+    name: "Replicate",
+    description: "海量模型聚合平台，FLUX、Imagen、Kling、Seedance、Veo 等一站接入",
+    tip: "模型库最全，predictions API 统一调用",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="4 17 10 11 4 5" />
+        <line x1="12" y1="19" x2="20" y2="19" />
+      </svg>
+    ),
+    iconBg: "from-slate-500 to-gray-700",
+  },
+  {
     key: "volcengine",
     name: "火山引擎",
     description: "字节跳动旗下云服务，提供豆包大模型和视频生成能力",
@@ -430,6 +443,7 @@ export default function SettingsPage() {
                     <div className="flex flex-wrap gap-2">
                       {[
                         { label: "Atlas Cloud", baseUrl: "https://api.atlascloud.ai/v1", model: "claude-sonnet-4-20250514", tip: "推荐！LLM+生图生视频共用一个 Key" },
+                        { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", model: "openai/gpt-4o", tip: "一个 Key 聚合 400+ 模型，OpenAI 协议直连" },
                         { label: "DeepSeek", baseUrl: "https://api.deepseek.com", model: "deepseek-v3.2", tip: "V3.2 推理+对话统一模型" },
                         { label: "Kimi", baseUrl: "https://api.moonshot.cn/v1", model: "kimi-k2.5", tip: "K2.5 支持 Agent Swarm" },
                         { label: "智谱 GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4", model: "glm-5-turbo", tip: "GLM-5 旗舰级" },

@@ -46,6 +46,7 @@ export const useSettingsStore = create<SettingsState>()(
       providers: {
         "atlas-cloud": { enabled: false, apiKey: "" },
         "fal-ai": { enabled: false, apiKey: "" },
+        replicate: { enabled: false, apiKey: "" },
         volcengine: { enabled: false, apiKey: "" },
         alibaba: { enabled: false, apiKey: "" },
         siliconflow: { enabled: false, apiKey: "" },

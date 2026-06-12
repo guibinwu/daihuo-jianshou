@@ -67,18 +67,36 @@ export class FalAIProvider extends BaseProvider {
    * 生成图片
    */
   async generateImage(options: ImageOptions): Promise<ImageResult> {
+    // GPT Image 系列只接受枚举字符串 image_size（1024x1024 / 1536x1024 / 1024x1536），
+    // 不接受 {width,height} 对象；按宽高比映射到最接近的枚举
+    const isGptImage = options.modelId.includes('gpt-image')
+    const gptImageSize = (() => {
+      const w = options.width ?? 0
+      const h = options.height ?? 0
+      if (w > h) return '1536x1024'
+      if (h > w) return '1024x1536'
+      return '1024x1024'
+    })()
+    // 编辑类端点用 image_urls 数组（gpt-image/edit、seedream/edit 等）
+    const isEdit = options.modelId.includes('/edit')
+
     const body = {
       prompt: options.prompt,
-      negative_prompt: options.negativePrompt,
-      image_size: options.width && options.height
+      negative_prompt: isGptImage ? undefined : options.negativePrompt,
+      image_size: isGptImage
+        ? gptImageSize
+        : options.width && options.height
         ? { width: options.width, height: options.height }
         : undefined,
       num_images: options.count ?? 1,
-      guidance_scale: options.guidanceScale,
-      num_inference_steps: options.steps,
+      guidance_scale: isGptImage ? undefined : options.guidanceScale,
+      num_inference_steps: isGptImage ? undefined : options.steps,
       seed: options.seed,
-      // image-to-image 模式
-      ...(options.referenceImageUrl && {
+      // 编辑模式：多图输入用 image_urls；普通图生图用 image_url
+      ...(options.referenceImageUrl && isEdit && {
+        image_urls: [options.referenceImageUrl],
+      }),
+      ...(options.referenceImageUrl && !isEdit && {
         image_url: options.referenceImageUrl,
       }),
       ...options.extra,
@@ -203,6 +221,31 @@ export class FalAIProvider extends BaseProvider {
     // 基于 fal.ai 官方平台确认的模型列表（2026-03）
     const models: Model[] = [
       // ==================== 图片生成 ====================
+      // OpenAI GPT Image（fal 上 OpenAI 最新图像模型为 gpt-image-1.5，强提示词遵循）
+      {
+        id: 'fal-ai/gpt-image-1.5',
+        name: 'GPT Image 1.5',
+        description: 'OpenAI 图像模型，强提示词遵循、构图与细节保真（带货商品主图首选）',
+        modes: ['text-to-image'],
+        mediaType: 'image',
+        provider: this.name,
+      },
+      {
+        id: 'fal-ai/gpt-image-1.5/edit',
+        name: 'GPT Image 1.5 Edit',
+        description: 'OpenAI 图像编辑，多图输入精修，适合商品保真重绘',
+        modes: ['image-to-image'],
+        mediaType: 'image',
+        provider: this.name,
+      },
+      {
+        id: 'fal-ai/bytedance/seedream/v5/lite/edit',
+        name: 'Seedream V5 Lite Edit',
+        description: '字节 Seedream 智能图像编辑，多图融合，商品换背景/锁主体',
+        modes: ['image-to-image'],
+        mediaType: 'image',
+        provider: this.name,
+      },
       {
         id: 'fal-ai/flux/schnell',
         name: 'FLUX.1 [schnell]',
