@@ -2,7 +2,7 @@ import { join } from "path";
 import { mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { TRANSITIONS, type TransitionMode } from "./transitions";
-import { MOTIONS } from "./motions";
+import { MOTIONS, DEFAULT_MOTION } from "./motions";
 
 /**
  * 探测一个可用的中文字体文件路径
@@ -102,15 +102,14 @@ export function buildComposeCommand(config: ComposeConfig): string {
 
   // 处理每个片段
   config.clips.forEach((clip, i) => {
-    if (clip.type === "image" && clip.motion) {
-      // 商品原图 + 运动效果
-      const motion = MOTIONS[clip.motion];
-      if (motion) {
-        inputs.push(`-loop 1 -t ${clip.duration} -i "${escapeShellPath(clip.filePath)}"`);
-        // 关键：zoompan 对每个输入帧输出 d 帧。-loop 产生多帧输入会导致帧数爆炸、视频被拉长数十倍，
-        // 因此先 trim 取首帧，再用 zoompan 的 d=duration*fps 控制总输出帧数。
-        filterParts.push(`[${i}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,trim=end_frame=1,setpts=PTS-STARTPTS,${motion.getFilter(width, height, clip.duration)},setpts=PTS-STARTPTS[v${i}]`);
-      }
+    if (clip.type === "image") {
+      // 商品原图 + 运动效果。运镜键无效时回退到默认运镜，绝不跳过片段
+      // （否则 inputs/filter 数量与下方 concat 引用的 [v${i}] 不一致，导致 ffmpeg 崩溃）
+      const motion = (clip.motion && MOTIONS[clip.motion]) || MOTIONS[DEFAULT_MOTION];
+      inputs.push(`-loop 1 -t ${clip.duration} -i "${escapeShellPath(clip.filePath)}"`);
+      // 关键：zoompan 对每个输入帧输出 d 帧。-loop 产生多帧输入会导致帧数爆炸、视频被拉长数十倍，
+      // 因此先 trim 取首帧，再用 zoompan 的 d=duration*fps 控制总输出帧数。
+      filterParts.push(`[${i}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,trim=end_frame=1,setpts=PTS-STARTPTS,${motion.getFilter(width, height, clip.duration)},setpts=PTS-STARTPTS[v${i}]`);
     } else {
       // 视频片段
       inputs.push(`-i "${escapeShellPath(clip.filePath)}"`);
@@ -184,10 +183,13 @@ export function buildComposeCommand(config: ComposeConfig): string {
   // 字幕
   if (config.subtitle?.texts.length) {
     const subtitleStream = `sub_out`;
-    const fontSize = config.subtitle.fontSize || 36;
+    // 字号按画面宽度自适应（约 5%），带货字幕需醒目；可被 config 覆盖
+    const fontSize = config.subtitle.fontSize || Math.round(width * 0.05);
     const fontColor = config.subtitle.color || "white";
-    const borderW = config.subtitle.strokeWidth || 2;
-    const yPos = config.subtitle.position === "top" ? "h*0.1" : config.subtitle.position === "center" ? "(h-text_h)/2" : "h*0.85";
+    const borderW = config.subtitle.strokeWidth || 3;
+    const yPos = config.subtitle.position === "top" ? "h*0.1" : config.subtitle.position === "center" ? "(h-text_h)/2" : "h*0.82";
+    // 半透明底框，提升可读性（带货短视频常见样式）
+    const boxArg = `box=1:boxcolor=black@0.45:boxborderw=${Math.round(fontSize * 0.35)}:`;
 
     // 中文字幕必须显式指定中文字体文件，否则渲染为方块
     const fontFile = config.subtitle.fontFile ?? resolveChineseFontFile();
@@ -196,7 +198,7 @@ export function buildComposeCommand(config: ComposeConfig): string {
     const drawTexts = config.subtitle.texts
       .map(
         (t) =>
-          `drawtext=${fontFileArg}text='${escapeDrawText(t.text)}':fontsize=${fontSize}:fontcolor=${fontColor}:borderw=${borderW}:x=(w-text_w)/2:y=${yPos}:enable='between(t,${t.startTime},${t.endTime})'`
+          `drawtext=${fontFileArg}text='${escapeDrawText(t.text)}':fontsize=${fontSize}:fontcolor=${fontColor}:borderw=${borderW}:${boxArg}x=(w-text_w)/2:y=${yPos}:enable='between(t,${t.startTime},${t.endTime})'`
       )
       .join(",");
 

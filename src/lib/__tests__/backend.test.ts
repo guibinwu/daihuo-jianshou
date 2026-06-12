@@ -170,7 +170,8 @@ describe("buildComposeCommand", () => {
     expect(cmd).toContain("drawtext");
     expect(cmd).toContain("fontsize=40");
     expect(cmd).toContain("fontcolor=yellow");
-    expect(cmd).toContain("h*0.85"); // bottom 位置
+    expect(cmd).toContain("h*0.82"); // bottom 位置（带半透明底框，略上移）
+    expect(cmd).toContain("box=1:boxcolor=black@0.45"); // 字幕底框
   });
 
   it("文件路径含特殊字符时正确转义", () => {

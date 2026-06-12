@@ -121,22 +121,16 @@ export const exampleShowcase: ExampleShowcase = {
   productName: "云柔加厚抽纸",
   category: "家居日用",
   styleLabel: "痛点种草",
-  totalDuration: 28,
+  totalDuration: 17,
   resolution: "1080p",
   aspectRatio: "9:16",
   cover: "/examples/tissue.png",
   videoUrl: "/examples/sample-tissue.mp4",
-  shots: exampleTemplates[0].shots.map((s, i) => ({
-    ...s,
-    voiceover:
-      i === 0
-        ? "你还在用一擦就破的纸巾？"
-        : i === 1
-        ? "普通纸巾一沾水就烂，擦个嘴满脸纸屑"
-        : i === 2
-        ? "直到我换上了这款云柔抽纸"
-        : i === 3
-        ? "加厚 3 层，湿水都不破，亲肤不掉屑"
-        : "整箱囤更划算，赶紧去抢！",
-  })),
+  // 与样片 sample-tissue.mp4 完全一致的 4 个镜头
+  shots: [
+    { shotId: 1, type: "hook", duration: 4, description: "客厅场景纸巾盒特写，缓慢推进", camera: "缓慢推进", visualSource: "product_image", transition: "ai_start_end", voiceover: "你还在用一擦就破的纸巾？", prompt: "" },
+    { shotId: 2, type: "demo", duration: 5, description: "纸巾吸水演示，湿水不破", camera: "俯拍特写", visualSource: "ai_generate", transition: "ai_start_end", voiceover: "加厚 3 层，湿水都不破", prompt: "" },
+    { shotId: 3, type: "product_reveal", duration: 4, description: "纸巾质感微距特写", camera: "微距推进", visualSource: "ai_generate", transition: "ai_start_end", voiceover: "原生木浆，亲肤不掉屑", prompt: "" },
+    { shotId: 4, type: "cta", duration: 4, description: "温馨家庭使用场景", camera: "固定", visualSource: "product_image", transition: "direct_concat", voiceover: "整箱囤更划算，赶紧抢！", prompt: "" },
+  ],
 };

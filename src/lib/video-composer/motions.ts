@@ -69,7 +69,21 @@ export const MOTIONS: Record<string, MotionConfig> = {
       return `zoompan=z='if(lt(on,${Math.floor(frames * 0.3)}),1+on*0.02,if(lt(on,${Math.floor(frames * 0.5)}),1.6-(on-${Math.floor(frames * 0.3)})*0.01,1.4))':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=${w}x${h}:fps=${fps}`;
     },
   },
+  // 静止：不做运镜，仅按时长定格画面（输出格式与其它运镜一致，保证可与运镜片段拼接）
+  static: {
+    name: "static",
+    label: "静止",
+    description: "画面定格，无运镜",
+    getFilter: (w, h, d) => {
+      const fps = 30;
+      const frames = d * fps;
+      return `zoompan=z='1':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=${w}x${h}:fps=${fps}`;
+    },
+  },
 };
+
+// 默认运镜：当指定的运镜键无效时回退，避免片段被静默丢弃
+export const DEFAULT_MOTION = "ken_burns";
 
 // 获取运动效果列表
 export function getMotionList(): MotionConfig[] {
