@@ -10,6 +10,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
   }
 
+  if (!apiKey) {
+    return NextResponse.json({ error: "缺少 API Key，请先在设置中配置对应平台" }, { status: 400 });
+  }
+
   try {
     const provider = createProvider({ name: providerName, apiKey, baseUrl });
 
