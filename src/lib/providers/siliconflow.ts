@@ -137,7 +137,10 @@ export class SiliconFlowProvider extends BaseProvider {
       throw new ProviderError('任务完成但未返回结果', 'NO_RESULT', this.name)
     }
 
-    return finalStatus.result as VideoResult
+    // 状态接口不回显 model，用调用方的 modelId 回填
+    const result = finalStatus.result as VideoResult
+    result.modelId = options.modelId
+    return result
   }
 
   /**
@@ -150,15 +153,16 @@ export class SiliconFlowProvider extends BaseProvider {
 
     const status = this.mapStatus(response.status)
 
+    // 状态接口可能不回显 requestId，统一用入参 taskId 作为任务标识
     const taskStatus: TaskStatus = {
-      taskId: response.requestId,
+      taskId,
       status,
     }
 
     // 解析视频结果
     if (status === 'completed' && response.results) {
       taskStatus.result = {
-        taskId: response.requestId,
+        taskId,
         videoUrls: response.results.videos.map((v) => v.url),
         coverImageUrl: response.results.cover_image_url,
         duration: response.results.videos[0]?.duration,

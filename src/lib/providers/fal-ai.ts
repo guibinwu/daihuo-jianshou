@@ -90,8 +90,9 @@ export class FalAIProvider extends BaseProvider {
       { method: 'POST', body }
     )
 
-    // 轮询等待结果
-    const finalStatus = await this.pollTaskStatus(submitResponse.request_id, {
+    // getTaskStatus 需要 "modelId::requestId" 格式来定位查询端点，这里拼接好再轮询
+    const taskId = `${options.modelId}::${submitResponse.request_id}`
+    const finalStatus = await this.pollTaskStatus(taskId, {
       interval: 2000,
     })
 
@@ -146,8 +147,9 @@ export class FalAIProvider extends BaseProvider {
       { method: 'POST', body }
     )
 
-    // 轮询等待结果
-    const finalStatus = await this.pollTaskStatus(submitResponse.request_id, {
+    // getTaskStatus 需要 "modelId::requestId" 格式来定位查询端点，这里拼接好再轮询
+    const taskId = `${options.modelId}::${submitResponse.request_id}`
+    const finalStatus = await this.pollTaskStatus(taskId, {
       interval: 5000,
     })
 

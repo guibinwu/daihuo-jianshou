@@ -110,7 +110,10 @@ export class VolcEngineProvider extends BaseProvider {
       throw new ProviderError('任务完成但未返回结果', 'NO_RESULT', this.name)
     }
 
-    return finalStatus.result as ImageResult
+    // 状态接口不回显 model，用调用方的 modelId 回填
+    const result = finalStatus.result as ImageResult
+    result.modelId = options.modelId
+    return result
   }
 
   /**
@@ -167,7 +170,10 @@ export class VolcEngineProvider extends BaseProvider {
       throw new ProviderError('任务完成但未返回结果', 'NO_RESULT', this.name)
     }
 
-    return finalStatus.result as VideoResult
+    // 状态接口不回显 model，用调用方的 modelId 回填
+    const result = finalStatus.result as VideoResult
+    result.modelId = options.modelId
+    return result
   }
 
   /**
