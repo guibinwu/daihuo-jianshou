@@ -207,7 +207,7 @@ open http://localhost:3000
 | **素材引擎** | 多源版权素材（Openverse 免 Key / Pixabay / Pexels），注册表式聚合检索 |
 | **测试** | Vitest (102 用例) + Playwright (E2E) |
 | **CI/CD** | GitHub Actions（lint + test + build） |
-| **桌面打包** | Electron + electron-builder（Win/Mac，进行中） |
+| **桌面打包** | Electron + electron-builder（Win/Mac，已打通：打包 App 实测可启动 + DB 路由可用） |
 | **图标** | react-icons (Lucide 图标集) |
 
 ---
@@ -293,6 +293,10 @@ pnpm drizzle-kit generate
 
 # 构建生产版本（含 .next/standalone，供 Electron 打包）
 pnpm build
+
+# 打包桌面 App（mac；首次需让 pnpm 装好 electron/ffmpeg 二进制）
+pnpm pack:dir   # 出免安装 .app 到 release/（快，验证布局）
+pnpm dist       # 出 .dmg 安装包
 ```
 
 ---
@@ -322,7 +326,7 @@ pnpm build
 **进行中（通用化 + 桌面分发）**
 - [ ] 无商品「一句话主题成片」闭环（LLM 文案→英文检索词→素材自动匹配→成片）
 - [ ] 免费 edge-tts 配音兜底 + 音色试听（零 Key 也能出声）
-- [ ] **Electron 一键桌面包**（Win/Mac 双击即用，内置 ffmpeg/sqlite）—— 已打通启动/路径/打包，剩 better-sqlite3 的 Electron ABI 重建
+- [x] **Electron 一键桌面包**：mac 打包 App 实测可启动 + DB 路由 200（better-sqlite3 切 Electron ABI、数据落 userData、内置 ffmpeg）。待办：CI 矩阵出 .dmg/.exe 发 Releases + GUI 真机实测
 
 **规划（真正的 AI 剪辑能力）**
 - [ ] 自动字幕 ASR（whisper / transformers.js）→ 烧录字幕
