@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataDir } from "@/lib/paths";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { generateScript, analyzeProduct } from "@/lib/script-engine/generator";
@@ -24,7 +25,7 @@ async function imagePathToBase64(imagePath: string): Promise<string> {
   if (!match) return imagePath;
 
   const relativePath = match[1];
-  const filePath = join(process.cwd(), "data", "uploads", relativePath);
+  const filePath = join(getDataDir(), "uploads", relativePath);
 
   try {
     const buffer = await readFile(filePath);

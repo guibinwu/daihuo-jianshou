@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataDir } from "@/lib/paths";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { getDb } from "@/lib/db";
@@ -36,7 +37,7 @@ async function persistSource(projectId: string, sourceUrl: string, shotId: numbe
     const buf = Buffer.from(await resp.arrayBuffer());
     const ct = resp.headers.get("content-type") || "";
     const ext = ct.includes("png") ? "png" : ct.includes("webp") ? "webp" : ct.includes("mp4") ? "mp4" : "jpg";
-    const dir = join(process.cwd(), "data", "uploads", projectId);
+    const dir = join(getDataDir(), "uploads", projectId);
     await mkdir(dir, { recursive: true });
     const fileName = `asset-${shotId}-${Date.now()}.${ext}`;
     await writeFile(join(dir, fileName), buf);

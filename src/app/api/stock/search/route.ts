@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataDir } from "@/lib/paths";
 import { mkdir } from "fs/promises";
 import { join, basename } from "path";
 import { downloadStockFile } from "@/lib/providers/stock-types";
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "没有检索到可用素材，换个检索词或素材源试试", skippedSources }, { status: 404 });
   }
 
-  const stockDir = join(process.cwd(), "data", "uploads", projectId, "stock");
+  const stockDir = join(getDataDir(), "uploads", projectId, "stock");
   await mkdir(stockDir, { recursive: true });
 
   const picked = candidates.slice(0, count);

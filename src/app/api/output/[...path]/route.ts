@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataDir } from "@/lib/paths";
 import { readFile, stat } from "fs/promises";
 import { join, normalize, sep } from "path";
 import { existsSync } from "fs";
@@ -10,7 +11,7 @@ export async function GET(
 ) {
   const { path } = await params;
 
-  const outputRoot = join(process.cwd(), "data", "output");
+  const outputRoot = join(getDataDir(), "output");
   // 解码并归一化路径，防止 ..%2f 等编码绕过造成路径穿越
   const decodedSegments = path.map((seg) => decodeURIComponent(seg));
   const filePath = normalize(join(outputRoot, ...decodedSegments));

@@ -1,4 +1,5 @@
 import { join } from "path";
+import { getDataDir } from "@/lib/paths";
 import { mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { TRANSITIONS, type TransitionMode } from "./transitions";
@@ -100,7 +101,7 @@ const RESOLUTIONS: Record<string, Record<string, { width: number; height: number
 // 生成 FFmpeg 合成命令
 export function buildComposeCommand(config: ComposeConfig): string {
   const { width, height } = RESOLUTIONS[config.output.aspectRatio][config.output.resolution];
-  const outputDir = join(process.cwd(), "data", "output", config.projectId);
+  const outputDir = join(getDataDir(), "output", config.projectId);
   const outputPath = join(outputDir, `final_${Date.now()}.mp4`);
 
   const inputs: string[] = [];
@@ -268,7 +269,7 @@ export function buildComposeCommand(config: ComposeConfig): string {
 
 // 执行合成
 export async function composeVideo(config: ComposeConfig): Promise<string> {
-  const outputDir = join(process.cwd(), "data", "output", config.projectId);
+  const outputDir = join(getDataDir(), "output", config.projectId);
   await mkdir(outputDir, { recursive: true });
 
   const cmd = buildComposeCommand(config);

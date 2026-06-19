@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataDir } from "@/lib/paths";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { createProvider } from "@/lib/providers";
@@ -13,7 +14,7 @@ async function toRemoteUsableImage(ref: string | undefined): Promise<string | un
   const m = ref.match(/\/api\/files\/(.+)/);
   if (!m) return ref;
   try {
-    const filePath = join(process.cwd(), "data", "uploads", m[1]);
+    const filePath = join(getDataDir(), "uploads", m[1]);
     const buf = await readFile(filePath);
     const ext = filePath.split(".").pop()?.toLowerCase() || "png";
     const mime =

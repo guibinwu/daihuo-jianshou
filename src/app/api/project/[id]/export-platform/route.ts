@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataDir } from "@/lib/paths";
 import { join } from "path";
 import { existsSync } from "fs";
 import { exec } from "child_process";
@@ -50,7 +51,7 @@ export async function POST(
     }
 
     const { w, h } = target;
-    const outFile = join(process.cwd(), "data", "output", id, `${platform}-${Date.now()}.mp4`);
+    const outFile = join(getDataDir(), "output", id, `${platform}-${Date.now()}.mp4`);
     // 模糊填充：[bg]放大裁切+模糊；[fg]等比适配；居中叠加
     const filter =
       `[0:v]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},boxblur=24:4[bg];` +

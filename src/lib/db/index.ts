@@ -4,12 +4,13 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import * as schema from "./schema";
+import { getDataDir, getMigrationsDir } from "@/lib/paths";
 
-// 数据库文件路径，放在项目根目录的 data 目录下
-const DB_DIR = path.join(process.cwd(), "data");
+// 数据库文件路径：可写数据目录（Electron 打包时由主进程注入 APP_DATA_DIR=userData/data）
+const DB_DIR = getDataDir();
 const DB_PATH = path.join(DB_DIR, "sqlite.db");
-// 迁移文件目录（drizzle-kit generate 产出，随仓库提交）
-const MIGRATIONS_DIR = path.join(process.cwd(), "drizzle");
+// 迁移文件目录（drizzle-kit generate 产出，随仓库提交；打包时指向 resources/drizzle）
+const MIGRATIONS_DIR = getMigrationsDir();
 
 // 确保 data 目录存在
 if (!fs.existsSync(DB_DIR)) {

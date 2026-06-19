@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataDir } from "@/lib/paths";
 import { join } from "path";
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
@@ -50,7 +51,7 @@ function toLocalPath(fileRef: string | undefined): string | undefined {
   if (!fileRef) return undefined;
   const m = fileRef.match(/\/api\/files\/(.+)/);
   if (!m) return undefined;
-  const p = join(process.cwd(), "data", "uploads", m[1]);
+  const p = join(getDataDir(), "uploads", m[1]);
   return existsSync(p) ? p : undefined;
 }
 
@@ -108,7 +109,7 @@ export async function POST(
       body.ttsConfig?.baseUrl && body.ttsConfig?.apiKey && body.ttsConfig?.model && body.ttsConfig?.voice
         ? body.ttsConfig
         : undefined;
-    const ttsDir = join(process.cwd(), "data", "uploads", id, "tts");
+    const ttsDir = join(getDataDir(), "uploads", id, "tts");
     if (ttsConfig) await mkdir(ttsDir, { recursive: true });
 
     /** 探测视频文件是否带音轨（自带语音/音效的视频模型产出） */

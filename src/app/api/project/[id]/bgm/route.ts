@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataDir } from "@/lib/paths";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 
@@ -27,7 +28,7 @@ export async function POST(
       return NextResponse.json({ error: "音频不超过 20MB" }, { status: 400 });
     }
 
-    const dir = join(process.cwd(), "data", "uploads", id);
+    const dir = join(getDataDir(), "uploads", id);
     await mkdir(dir, { recursive: true });
     const fileName = `bgm.${ext}`;
     await writeFile(join(dir, fileName), Buffer.from(await file.arrayBuffer()));

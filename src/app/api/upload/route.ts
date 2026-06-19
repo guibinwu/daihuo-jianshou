@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDataDir } from "@/lib/paths";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 创建上传目录
-  const uploadDir = join(process.cwd(), "data", "uploads", projectId);
+  const uploadDir = join(getDataDir(), "uploads", projectId);
   await mkdir(uploadDir, { recursive: true });
 
   const savedPaths: string[] = [];
