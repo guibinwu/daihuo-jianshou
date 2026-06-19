@@ -21,10 +21,9 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      # pnpm 版本由 package.json 的 packageManager 字段决定，这里不再重复指定（否则报版本冲突）
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: 配置 Node 22（启用 pnpm 缓存）
         uses: actions/setup-node@v4
