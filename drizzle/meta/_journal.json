@@ -8,6 +8,13 @@
       "when": 1781261980560,
       "tag": "0000_damp_mojo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1781838747824,
+      "tag": "0001_complex_the_anarchist",
+      "breakpoints": true
     }
   ]
 }

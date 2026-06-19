@@ -39,12 +39,17 @@ export const assets = sqliteTable("assets", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   shotId: integer("shot_id").notNull(), // 对应分镜序号
-  type: text("type", { enum: ["ai_generated", "product_image", "user_upload"] }).notNull(),
+  // stock_footage = 版权素材库（如 Pexels）检索下载的免费可商用视频/图片
+  type: text("type", { enum: ["ai_generated", "product_image", "user_upload", "stock_footage"] }).notNull(),
   filePath: text("file_path"),
   thumbnailPath: text("thumbnail_path"),
   provider: text("provider"),
   model: text("model"),
   prompt: text("prompt"),
+  // 素材来源信息（stock_footage 合规必需：留存出处链接/作者/授权，导出时生成 credits）
+  sourceUrl: text("source_url"), // 素材来源页 URL（如 Pexels 视频详情页）
+  author: text("author"), // 素材作者（署名用）
+  license: text("license"), // 授权类型，如 "Pexels"
   status: text("status", { enum: ["pending", "generating", "done", "failed"] }).notNull().default("pending"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
