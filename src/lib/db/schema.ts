@@ -5,6 +5,10 @@ export const projects = sqliteTable("projects", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   status: text("status", { enum: ["draft", "scripting", "assets", "video", "composing", "done"] }).notNull().default("draft"),
+  // 内容类型：product=带货（围绕商品），topic=主题成片（无商品，一句话主题→旁白脚本→免费素材自动配画面）
+  contentType: text("content_type", { enum: ["product", "topic"] }).default("product"),
+  // topic 模式下用户输入的一句话主题（如"在家如何泡一杯手冲咖啡"）
+  topic: text("topic"),
   productName: text("product_name"),
   productCategory: text("product_category"),
   productDescription: text("product_description"),

@@ -575,6 +575,196 @@ export function buildBatchPrompt(input: ScriptGenerationInput, count: number = 3
 请确保输出 ${count} 个脚本方案。`;
 }
 
+// ==================== 主题成片（去商品化）====================
+//
+// 「一句话主题成片」：用户只给一句话主题（如"在家如何泡一杯手冲咖啡"、"城市夜景的浪漫"），
+// 不涉及任何商品，引擎产出一条有旁白、有画面节奏的短视频脚本，每个分镜都带英文检索词
+// （stockKeywords），随后由 stock-fill 从免费素材库自动配齐画面 → 合成成片。
+// 与带货脚本的区别：没有商品/卖点/逼单，全程 ai_generate（实际由免费素材兜底），重表达不重转化。
+
+/** 主题成片的系统角色：通用短视频内容编导（知识/生活/故事/情绪向） */
+export const TOPIC_SYSTEM_PROMPT = `你是一位顶级短视频内容编导，擅长把任意一个主题做成有画面、有节奏、让人看完有收获或有共鸣的竖屏短视频。
+
+【核心能力】
+1. 黄金3秒：用悬念、反差、利益承诺或情绪共鸣在前3秒留住观众
+2. 信息节奏：把主题拆成层层递进的小信息点，每个分镜只讲一件事，不堆砌
+3. 画面感：每个分镜都能对应到一段真实可检索的画面（风景、动作、物件、场景）
+4. 旁白口语化：像朋友聊天，不书面、不说教，配音字数与时长匹配（约3字/秒）
+5. 收尾升华：结尾用一句金句或行动建议收束，给观众"值得点赞收藏"的理由
+
+【创作原则】
+- 这是一条没有商品的内容向短视频，不要出现任何带货、卖点、价格、下单、购买引导
+- 每个分镜的画面都要能用免费素材库搜到，所以画面主体要常见、具象、可拍摄
+- 画面里不强求出现人脸，优先用环境/动作/物件/风景表达
+- searchTerms 必须用英文，描述该分镜的画面主体，是自动配画面的关键，绝不能省略
+
+【输出要求】
+你必须严格按照指定的 JSON 格式输出，不要输出任何额外的解释文字。`;
+
+/** 主题成片旁白风格 */
+export type TopicNarrationStyle = "knowledge" | "story" | "lifestyle" | "inspiration" | "travel";
+
+/** 旁白风格中文名 */
+export const topicNarrationNameMap: Record<TopicNarrationStyle, string> = {
+  knowledge: "知识科普",
+  story: "情感故事",
+  lifestyle: "生活方式",
+  inspiration: "励志金句",
+  travel: "旅行风光",
+};
+
+/** 各旁白风格的创作指令 */
+const topicStylePrompts: Record<TopicNarrationStyle, string> = {
+  knowledge: `
+【旁白风格：知识科普】
+- 开头抛出一个反常识或让人好奇的问题/事实
+- 中间用 3-5 个递进的小知识点把主题讲清楚，每个分镜一个点
+- 语言准确但不掉书袋，多用"其实""你可能不知道"等口语连接
+- 结尾给一句可记住的总结金句`,
+  story: `
+【旁白风格：情感故事】
+- 用第一人称或第二人称叙事，开头是一个有代入感的瞬间
+- 中间有情绪起伏（铺垫→转折→释然），让观众跟着走
+- 画面以氛围、光影、生活细节为主，烘托情绪
+- 结尾落到一句能引发共鸣的感悟`,
+  lifestyle: `
+【旁白风格：生活方式】
+- 像一段精致的生活 vlog 旁白，娓娓道来
+- 展示一个具体的生活场景/流程/习惯的美好瞬间
+- 画面注重质感与细节（手部动作、物件特写、自然光）
+- 结尾是一句温柔的生活态度表达`,
+  inspiration: `
+【旁白风格：励志金句】
+- 节奏明快有力，每个分镜一句短而有冲击力的话
+- 用对比、排比制造气势，画面大气（风光、奔跑、登顶、城市）
+- 不空喊口号，结合具体画面让情绪落地
+- 结尾一句点题的金句，适合被点赞收藏`,
+  travel: `
+【旁白风格：旅行风光】
+- 以目的地或风景为主角，旁白像一封写给某个地方的信
+- 画面是地标、自然、人文细节的组合，节奏舒缓
+- 旁白点出这个地方独特的氛围与值得去的理由
+- 结尾留一句让人想出发的话`,
+};
+
+/** 主题成片的输出格式约束（复用 Shot 结构，但去掉商品/逼单，强制每镜 searchTerms） */
+const TOPIC_OUTPUT_FORMAT_PROMPT = `
+【输出格式要求】
+请严格按照以下 JSON 格式输出，不要包含任何 markdown 代码块标记或额外文字：
+
+{
+  "title": "脚本标题（10字以内，抓人眼球）",
+  "totalDuration": 25,
+  "shots": [
+    {
+      "shotId": 1,
+      "type": "hook",
+      "duration": 3,
+      "description": "中文画面描述：这一镜呈现什么画面（场景/动作/物件/光线），要具体可检索",
+      "camera": "镜头运动描述：特写/中景/全景 + 推拉摇移",
+      "visualSource": "ai_generate",
+      "transition": "direct_concat",
+      "voiceover": "中文旁白文案，字数约等于 duration × 3",
+      "searchTerms": ["english keyword", "alt keyword"]
+    }
+  ]
+}
+
+字段规则：
+- shotId: 从1开始递增的整数
+- type: 第一个分镜用 "hook"，中间分镜用 "demo"，最后一个用 "cta"（此处表示收尾升华，不是带货）
+- duration: 该分镜时长（秒），所有分镜 duration 之和应等于 totalDuration
+- description: 中文画面描述，具体到可以直接检索或拍摄
+- camera: 中文镜头运动描述
+- visualSource: 固定为 "ai_generate"
+- transition: "direct_concat" | "ffmpeg_fade" 之一（主题成片节奏明快，建议这两种）
+- voiceover: 中文旁白文案，字数约等于 duration × 3
+- searchTerms: 【必填】1-3 个英文检索词，精准描述该分镜画面主体，如 ["pour over coffee", "coffee beans closeup"]。每个分镜都必须有，否则无法自动配画面
+
+注意事项：
+1. 第一个分镜 type 必须是 "hook"，最后一个必须是 "cta"（收尾升华）
+2. totalDuration 控制在 15-40 秒之间
+3. 分镜数量控制在 5-9 个
+4. 全程不得出现任何商品、卖点、价格、购买/下单引导
+5. 每个分镜的 searchTerms 都不能省略，用常见、具象的英文词以保证素材库能搜到画面
+`;
+
+/** 主题成片脚本生成输入 */
+export interface TopicScriptInput {
+  /** 一句话主题 */
+  topic: string;
+  /** 旁白风格，默认 knowledge */
+  narrationStyle?: TopicNarrationStyle;
+  /** 目标时长（秒），默认 25 */
+  targetDuration?: number;
+  /** 投放平台（逗号分隔），用于注入平台 SEO 策略（可选） */
+  platforms?: string;
+  /** 用户额外要求（可选） */
+  customRequirements?: string;
+}
+
+/** 组装主题成片的用户 prompt */
+export function buildTopicPrompt(input: TopicScriptInput): string {
+  const {
+    topic,
+    narrationStyle = "knowledge",
+    targetDuration = 25,
+    platforms,
+    customRequirements,
+  } = input;
+
+  const styleDirective = topicStylePrompts[narrationStyle] ?? topicStylePrompts.knowledge;
+
+  const parts: string[] = [];
+  parts.push(`请围绕以下主题创作一条竖屏短视频脚本（这是一条没有商品的内容向视频）：`);
+  parts.push(`\n【主题】\n${topic}`);
+  parts.push(`\n【基本要求】`);
+  parts.push(`- 旁白风格：${topicNarrationNameMap[narrationStyle] ?? "知识科普"}`);
+  parts.push(`- 目标总时长：${targetDuration}秒`);
+  parts.push(`- 画面比例：9:16 竖屏（手机观看）`);
+
+  // 旁白风格指令
+  parts.push(`\n${styleDirective}`);
+
+  // 黄金3秒（与带货共用，开头抓人逻辑通用）
+  parts.push(`\n${goldenThreeSecondsStrategies}`);
+
+  // 平台 SEO（可选，用第一个平台）
+  if (platforms) {
+    const primary = platforms.split(",")[0];
+    if (PLATFORM_SEO_DIRECTIVES[primary]) {
+      parts.push(`\n${PLATFORM_SEO_DIRECTIVES[primary]}`);
+    }
+  }
+
+  if (customRequirements) {
+    parts.push(`\n【用户额外要求】\n${customRequirements}`);
+  }
+
+  parts.push(`\n${TOPIC_OUTPUT_FORMAT_PROMPT}`);
+
+  return parts.join("\n");
+}
+
+/** 批量生成多套主题成片脚本（不同切入角度） */
+export function buildTopicBatchPrompt(input: TopicScriptInput, count: number = 3): string {
+  const basePrompt = buildTopicPrompt(input);
+  return `${basePrompt}
+
+【批量生成要求】
+请生成 ${count} 个不同切入角度的脚本方案，每个方案的开头钩子、叙事顺序、画面选择都要有明显差异。
+
+输出格式改为：
+{
+  "scripts": [
+    { "title": "...", "totalDuration": ..., "shots": [...] },
+    { "title": "...", "totalDuration": ..., "shots": [...] }
+  ]
+}
+
+请确保输出 ${count} 个脚本方案，且每个分镜都带 searchTerms。`;
+}
+
 // ==================== 向后兼容的旧接口 ====================
 
 /**

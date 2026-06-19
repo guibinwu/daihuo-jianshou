@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LuSettings, LuPlus, LuZap, LuVideo, LuFilm, LuPackage, LuTriangleAlert, LuLoaderCircle } from "react-icons/lu";
+import { LuSettings, LuPlus, LuZap, LuVideo, LuFilm, LuPackage, LuTriangleAlert, LuLoaderCircle, LuSparkles } from "react-icons/lu";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,10 +90,10 @@ export default function HomePage() {
         {/* Hero */}
         <div className="mb-12">
           <h1 className="text-3xl font-bold tracking-tight mb-2">
-            <span className="brand-gradient-text">AI 驱动</span>的电商带货视频
+            <span className="brand-gradient-text">AI 驱动</span>的短视频创作
           </h1>
           <p className="text-muted-foreground text-base">
-            上传商品图，AI 生成脚本，一键产出高转化带货短视频
+            带货上传商品图、或一句话主题成片，AI 写脚本、自动配画面，一键产出竖屏短视频
           </p>
         </div>
 
@@ -115,8 +115,32 @@ export default function HomePage() {
           </Link>
         )}
 
-        {/* 三个核心入口 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+        {/* 核心入口 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+          {/* 卡片0：一句话主题成片（无需商品，新手最低门槛入口） */}
+          <Link href="/project/topic">
+            <Card className="card-hover glass-card cursor-pointer group h-full">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg group-hover:scale-105 transition-transform">
+                    <LuSparkles className="w-[22px] h-[22px] text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold mb-1">一句话主题成片</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      无需商品，输入一句话主题 → AI 写旁白脚本 → 从免费素材库自动配齐画面 → 一键合成竖屏短视频
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <Badge variant="secondary" className="text-xs">零门槛</Badge>
+                  <Badge variant="secondary" className="text-xs">免费素材</Badge>
+                  <Badge variant="secondary" className="text-xs">任意主题</Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
           {/* 卡片1：新建带货视频 */}
           <Link href="/project/new">
             <Card className="card-hover glass-card cursor-pointer group h-full">

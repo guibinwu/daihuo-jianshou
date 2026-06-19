@@ -99,6 +99,11 @@ const RESOLUTIONS: Record<string, Record<string, { width: number; height: number
   "1:1": { "720p": { width: 720, height: 720 }, "1080p": { width: 1080, height: 1080 } },
 };
 
+// 片段归一化滤镜：把每个 [v{i}] 统一成相同的像素格式 / 方形像素(SAR=1) / 30fps / 标准时基，
+// 让后续 concat / xfade 的所有输入完全一致——这是混用真实素材（不同来源、不同像素格式）时
+// 避免 FFmpeg「Error reinitializing filters」合成崩溃的关键。
+const SEGMENT_NORM = "format=yuv420p,setsar=1,fps=30,settb=AVTB";
+
 // 生成 FFmpeg 合成命令
 export function buildComposeCommand(config: ComposeConfig): string {
   const { width, height } = RESOLUTIONS[config.output.aspectRatio][config.output.resolution];
@@ -122,11 +127,13 @@ export function buildComposeCommand(config: ComposeConfig): string {
       inputs.push(`-loop 1 -t ${clip.duration} -i "${escapeShellPath(clip.filePath)}"`);
       // 关键：zoompan 对每个输入帧输出 d 帧。-loop 产生多帧输入会导致帧数爆炸、视频被拉长数十倍，
       // 因此先 trim 取首帧，再用 zoompan 的 d=duration*fps 控制总输出帧数。
-      filterParts.push(`[${i}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,trim=end_frame=1,setpts=PTS-STARTPTS,${motion.getFilter(width, height, clip.duration)},setpts=PTS-STARTPTS[v${i}]`);
+      // 末尾 SEGMENT_NORM 统一像素格式/SAR/帧率/时基：免费素材库的真实图片像素格式各异
+      // （yuvj420p/yuv420p/yuvj444p…），不归一会让 concat/xfade 报「Error reinitializing filters」而合成失败。
+      filterParts.push(`[${i}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,trim=end_frame=1,setpts=PTS-STARTPTS,${motion.getFilter(width, height, clip.duration)},setpts=PTS-STARTPTS,${SEGMENT_NORM}[v${i}]`);
     } else {
       // 视频片段：缩放铺满 + 按分镜时长裁剪，保证与音轨/字幕时间轴对齐
       inputs.push(`-i "${escapeShellPath(clip.filePath)}"`);
-      filterParts.push(`[${i}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=30,trim=duration=${clip.duration},setpts=PTS-STARTPTS[v${i}]`);
+      filterParts.push(`[${i}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=30,trim=duration=${clip.duration},setpts=PTS-STARTPTS,${SEGMENT_NORM}[v${i}]`);
     }
   });
 
@@ -152,21 +159,29 @@ export function buildComposeCommand(config: ComposeConfig): string {
   }
 
   // 拼接视频转场
+  // 关键：xfade 的 offset 必须相对「已累计拼接后的流」长度，而不是上一个片段的时长。
+  // 否则第 3 个及以后的 xfade 会从很早的时间点开始淡入，把前面已拼好的画面整段截掉
+  // （表现为成片时长莫名缩短一大截）。这里用 accumulated 跟踪当前流的真实时长。
   let currentVideoStream = "v0";
+  let accumulated = config.clips[0]?.duration ?? 0; // v0 的时长
   for (let i = 1; i < config.clips.length; i++) {
     const transitionMode = config.clips[i].transition as TransitionMode;
     const nextStream = `xfade${i}`;
+    const clipDuration = config.clips[i].duration;
 
     if (transitionMode === "ffmpeg_fade") {
       const fadeDuration = 0.5;
-      const prevDuration = config.clips[i - 1].duration;
-      const offset = prevDuration - fadeDuration;
+      // 从「当前累计流末尾往前 fadeDuration」开始交叉淡化
+      const offset = Math.max(accumulated - fadeDuration, 0);
       filterParts.push(
         `[${currentVideoStream}][v${i}]xfade=transition=fade:duration=${fadeDuration}:offset=${offset}[${nextStream}]`
       );
+      // xfade 会重叠 fadeDuration，故累计时长加上新片段后要减去重叠部分
+      accumulated = accumulated + clipDuration - fadeDuration;
     } else {
-      // ai_start_end / ai_reference / direct_concat：直接拼接
+      // ai_start_end / ai_reference / direct_concat：直接拼接（不重叠）
       filterParts.push(`[${currentVideoStream}][v${i}]concat=n=2:v=1:a=0[${nextStream}]`);
+      accumulated = accumulated + clipDuration;
     }
     currentVideoStream = nextStream;
   }

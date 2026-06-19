@@ -228,10 +228,36 @@ describe("buildComposeCommand", () => {
     expect(cmd).toContain("offset=2.5");
   });
 
+  it("多片段混用转场时 xfade offset 相对累计流时长（不会截断已拼接画面）", () => {
+    const config: ComposeConfig = {
+      ...baseConfig,
+      clips: [
+        { type: "image", filePath: "/d/1.jpg", duration: 3, transition: "direct_concat", motion: "static" },
+        { type: "image", filePath: "/d/2.jpg", duration: 4, transition: "ffmpeg_fade", motion: "static" },
+        { type: "image", filePath: "/d/3.jpg", duration: 4, transition: "direct_concat", motion: "static" },
+        { type: "image", filePath: "/d/4.jpg", duration: 3, transition: "ffmpeg_fade", motion: "static" },
+      ],
+    };
+    const cmd = buildComposeCommand(config);
+    // 第一个 xfade（i=1）：offset = 累计3 - 0.5 = 2.5
+    expect(cmd).toContain("offset=2.5");
+    // 第二个 xfade（i=3）：累计 = 3 +4-0.5(fade) +4(concat) = 10.5 → offset = 10.5 - 0.5 = 10
+    expect(cmd).toContain("offset=10");
+    // 绝不能再用「上一个片段时长 - 0.5 = 2.5」那种错误算法导致第二个 fade 也 offset=2.5
+    expect(cmd).not.toContain("offset=2.5:");
+  });
+
   it("输出文件路径正确", () => {
     const cmd = buildComposeCommand(baseConfig);
     expect(cmd).toContain("test-project-001");
     expect(cmd).toMatch(/final_\d+\.mp4/);
+  });
+
+  it("每个视频片段归一化像素格式/SAR/帧率/时基（避免混用真实素材时 xfade/concat 崩溃）", () => {
+    const cmd = buildComposeCommand(baseConfig);
+    // 两个片段（图片 + 视频）都应带统一归一化后缀，否则不同像素格式素材会让 ffmpeg 报错
+    expect(cmd).toContain("format=yuv420p,setsar=1,fps=30,settb=AVTB[v0]");
+    expect(cmd).toContain("format=yuv420p,setsar=1,fps=30,settb=AVTB[v1]");
   });
 });
 

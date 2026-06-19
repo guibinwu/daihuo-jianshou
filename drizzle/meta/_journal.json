@@ -15,6 +15,13 @@
       "when": 1781838747824,
       "tag": "0001_complex_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1781881200831,
+      "tag": "0002_add_content_type_topic",
+      "breakpoints": true
     }
   ]
 }

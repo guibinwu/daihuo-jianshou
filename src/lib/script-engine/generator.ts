@@ -8,9 +8,12 @@ import OpenAI from "openai";
 import {
   SYSTEM_PROMPT,
   PRODUCT_ANALYSIS_PROMPT,
+  TOPIC_SYSTEM_PROMPT,
   buildUserPrompt,
   buildBatchPrompt,
+  buildTopicBatchPrompt,
   type ScriptGenerationInput,
+  type TopicScriptInput,
 } from "./prompts";
 import type { Shot } from "@/lib/db/schema";
 
@@ -212,6 +215,47 @@ export async function generateScript(input: ScriptInput): Promise<GeneratedScrip
   }
 
   return parseScriptResponse(content, input.styleType);
+}
+
+/** 主题成片脚本生成输入（一句话主题 + LLM 配置） */
+export interface TopicScriptGenInput extends TopicScriptInput {
+  llmConfig: LLMConfig;
+  /** 生成几套方案，默认 3 */
+  count?: number;
+}
+
+/**
+ * 生成「一句话主题成片」脚本（去商品化，每个分镜带英文检索词供自动配画面）
+ * @param input - 主题 + LLM 配置
+ * @returns 生成的脚本数组（含 stockKeywords，可直接喂给 stock-fill 配齐画面）
+ */
+export async function generateTopicScript(input: TopicScriptGenInput): Promise<GeneratedScript[]> {
+  const client = createClient(input.llmConfig);
+  const userPrompt = buildTopicBatchPrompt(input, input.count ?? 3);
+
+  let response;
+  try {
+    response = await client.chat.completions.create({
+      model: input.llmConfig.model,
+      messages: [
+        { role: "system", content: TOPIC_SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.85,
+      max_tokens: 16000,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(`LLM 请求失败（模型: ${input.llmConfig.model}，地址: ${input.llmConfig.baseUrl}）: ${msg}`);
+  }
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("LLM 未返回有效内容");
+  }
+
+  // 主题成片没有带货风格概念，统一回退为 "custom"
+  return parseScriptResponse(content, "custom");
 }
 
 /**
