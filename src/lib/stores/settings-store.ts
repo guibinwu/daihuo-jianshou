@@ -61,11 +61,15 @@ interface SettingsState {
   imageParams: ImageGenParams;
   // 视频生成全局默认参数
   videoParams: VideoGenParams;
-  // 界面语言（中文默认，可切 English）
+  // 界面语言（首次按系统语言自动判定，可手动切换）
   locale: Locale;
+  // 语言来源：auto=跟随系统语言自动判定，user=用户手动选过（不再自动覆盖）
+  localeSource: "auto" | "user";
 
   // Actions
   setLocale: (locale: Locale) => void;
+  // 自动判定结果应用（仅在 localeSource==="auto" 时由初始化器调用，不改变 source）
+  applyAutoLocale: (locale: Locale) => void;
   setProvider: (name: string, setting: ProviderSetting) => void;
   setLLM: (llm: LLMSetting) => void;
   setTTS: (tts: TTSSetting) => void;
@@ -114,8 +118,12 @@ export const useSettingsStore = create<SettingsState>()(
       imageParams: DEFAULT_IMAGE_PARAMS,
       videoParams: DEFAULT_VIDEO_PARAMS,
       locale: DEFAULT_LOCALE,
+      localeSource: "auto",
 
-      setLocale: (locale) => set({ locale }),
+      // 用户手动切换：记为 user，之后不再被自动判定覆盖
+      setLocale: (locale) => set({ locale, localeSource: "user" }),
+      // 自动判定应用：保持 source=auto，跟随系统语言
+      applyAutoLocale: (locale) => set({ locale }),
       setProvider: (name, setting) =>
         set((state) => ({
           providers: { ...state.providers, [name]: setting },
