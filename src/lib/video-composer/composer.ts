@@ -43,6 +43,53 @@ function escapeDrawText(text: string): string {
     .replace(/\]/g, "\\\\]");
 }
 
+/** 判断是否为 CJK（中日韩）字符——用于估算字宽与换行策略 */
+function isCJK(ch: string): boolean {
+  return /[⺀-鿿豈-﫿＀-￯　-〿]/.test(ch);
+}
+
+/**
+ * 字幕自动换行：按画面宽度把长文案折成多行（插入真实换行符，drawtext 原生支持）。
+ * 解决全球化后英文配音字幕过长溢出画面两侧的问题（英文同时长字符数远多于中文）。
+ * 估宽：CJK 字 ≈ fontSize，拉丁字符 ≈ fontSize×0.55；拉丁按单词断行（不拆词），CJK 按字断行。
+ * 纯函数，便于单测。
+ */
+export function wrapCaption(text: string, fontSize: number, frameWidth: number): string {
+  const clean = (text || "").replace(/\s+/g, " ").trim();
+  if (!clean) return clean;
+  const maxWidth = frameWidth * 0.86; // 两侧留边距
+  const charW = (ch: string) => (isCJK(ch) ? fontSize : fontSize * 0.55);
+  const strW = (s: string) => Array.from(s).reduce((w, c) => w + charW(c), 0);
+
+  const lines: string[] = [];
+  let line = "";
+  const hardBreak = (token: string) => {
+    for (const ch of token) {
+      if (line && strW(line + ch) > maxWidth) {
+        lines.push(line);
+        line = "";
+      }
+      line += ch;
+    }
+  };
+  for (const token of clean.split(" ")) {
+    if (strW(token) > maxWidth) {
+      // 单个 token 自身超宽（长 CJK 串或超长单词）→ 按字硬切
+      hardBreak(token);
+      continue;
+    }
+    const cand = line ? `${line} ${token}` : token;
+    if (line && strW(cand) > maxWidth) {
+      lines.push(line);
+      line = token;
+    } else {
+      line = cand;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.join("\n");
+}
+
 /**
  * 转义 shell 双引号字符串中的特殊字符
  * 防止文件路径包含特殊字符时导致命令注入
@@ -227,7 +274,9 @@ export function buildComposeCommand(config: ComposeConfig): string {
     const fontSize = config.subtitle.fontSize || Math.round(width * 0.05);
     const fontColor = config.subtitle.color || "white";
     const borderW = config.subtitle.strokeWidth || 3;
-    const yPos = config.subtitle.position === "top" ? "h*0.1" : config.subtitle.position === "center" ? "(h-text_h)/2" : "h*0.82";
+    // 多行安全的纵向锚点：底部按文字块底边定位（向上生长，不会越过画面底边）；居中/顶部含 text_h
+    const yPos = config.subtitle.position === "top" ? "h*0.08" : config.subtitle.position === "center" ? "(h-text_h)/2" : "h*0.88-text_h";
+    const lineSpacing = Math.round(fontSize * 0.28);
     // 半透明底框，提升可读性（带货短视频常见样式）
     const boxArg = `box=1:boxcolor=black@0.45:boxborderw=${Math.round(fontSize * 0.35)}:`;
 
@@ -236,10 +285,11 @@ export function buildComposeCommand(config: ComposeConfig): string {
     const fontFileArg = fontFile ? `fontfile='${escapeDrawText(fontFile)}':` : "";
 
     const drawTexts = config.subtitle.texts
-      .map(
-        (t) =>
-          `drawtext=${fontFileArg}text='${escapeDrawText(t.text)}':fontsize=${fontSize}:fontcolor=${fontColor}:borderw=${borderW}:${boxArg}x=(w-text_w)/2:y=${yPos}:enable='between(t,${t.startTime},${t.endTime})'`
-      )
+      .map((t) => {
+        // 自动换行避免英文/长文案溢出画面（drawtext 原生支持真实换行符）
+        const wrapped = wrapCaption(t.text, fontSize, width);
+        return `drawtext=${fontFileArg}text='${escapeDrawText(wrapped)}':fontsize=${fontSize}:fontcolor=${fontColor}:borderw=${borderW}:line_spacing=${lineSpacing}:${boxArg}x=(w-text_w)/2:y=${yPos}:enable='between(t,${t.startTime},${t.endTime})'`;
+      })
       .join(",");
 
     filterParts.push(`[${currentVideoStream}]${drawTexts}[${subtitleStream}]`);

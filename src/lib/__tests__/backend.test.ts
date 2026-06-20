@@ -200,7 +200,8 @@ describe("buildComposeCommand", () => {
     expect(cmd).toContain("drawtext");
     expect(cmd).toContain("fontsize=40");
     expect(cmd).toContain("fontcolor=yellow");
-    expect(cmd).toContain("h*0.82"); // bottom 位置（带半透明底框，略上移）
+    expect(cmd).toContain("h*0.88-text_h"); // bottom 多行安全锚点（按文字块底边定位，向上生长）
+    expect(cmd).toContain("line_spacing="); // 多行行距
     expect(cmd).toContain("box=1:boxcolor=black@0.45"); // 字幕底框
   });
 
