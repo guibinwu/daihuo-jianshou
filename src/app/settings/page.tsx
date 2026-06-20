@@ -252,6 +252,25 @@ export default function SettingsPage() {
     }
   };
 
+  // AI 平台 Key 连通性测试（真实鉴权探针，非假测试）
+  const [providerTest, setProviderTest] = useState<Record<string, { state: "idle" | "testing" | "ok" | "invalid" | "unknown"; msg?: string }>>({});
+  const testProvider = async (key: string) => {
+    const p = providers[key];
+    if (!p?.apiKey) return;
+    setProviderTest((s) => ({ ...s, [key]: { state: "testing" } }));
+    try {
+      const res = await fetch("/api/ai/test-provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: key, apiKey: p.apiKey, baseUrl: p.baseUrl }),
+      });
+      const data = await res.json();
+      setProviderTest((s) => ({ ...s, [key]: { state: data.status ?? "unknown", msg: data.message } }));
+    } catch {
+      setProviderTest((s) => ({ ...s, [key]: { state: "unknown", msg: "网络异常" } }));
+    }
+  };
+
   // TTS 平台元信息 / 就绪态 / 切换平台时重置模型·音色·baseUrl 为该平台默认
   const ttsMeta = getTTSProviderMeta(tts.provider);
   const ttsReady = isPaidTTSReady(tts, providers);
@@ -314,6 +333,23 @@ export default function SettingsPage() {
   const enabledNames = new Set(enabledProviders.map((p) => p.name));
   const imageModelOptions = mergeCustomModels(imageModels, customModels, "image", enabledNames);
   const videoModelOptions = mergeCustomModels(videoModels, customModels, "video", enabledNames);
+
+  // 启用平台后自动选默认模型：当前没选(或所选已失效)且有可选项时，自动落到第一个
+  // —— 避免新手「配了 Key 却因没选默认模型而生成失败」的坑
+  const imageIds = imageModelOptions.map((m) => m.id).join(",");
+  const videoIds = videoModelOptions.map((m) => m.id).join(",");
+  useEffect(() => {
+    if (imageModelOptions.length && !imageModelOptions.some((m) => m.id === defaultImageModel)) {
+      setDefaultImageModel(imageModelOptions[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageIds]);
+  useEffect(() => {
+    if (videoModelOptions.length && !videoModelOptions.some((m) => m.id === defaultVideoModel)) {
+      setDefaultVideoModel(videoModelOptions[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoIds]);
 
   // LLM 连接测试状态
   const [llmTestStatus, setLlmTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
@@ -487,25 +523,46 @@ export default function SettingsPage() {
                           }
                           placeholder={t("apiKeyPlaceholder", { name: platform.name })}
                         />
+                        {/* Key 连通性测试：真实鉴权探针 ✓/✗/⚠ */}
+                        <div className="mt-2 flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-7"
+                            disabled={!provider.apiKey || providerTest[platform.key]?.state === "testing"}
+                            onClick={() => testProvider(platform.key)}
+                          >
+                            {providerTest[platform.key]?.state === "testing" ? "测试中…" : "测试连接"}
+                          </Button>
+                          {(() => {
+                            const r = providerTest[platform.key];
+                            if (!r || r.state === "idle" || r.state === "testing") return null;
+                            const color = r.state === "ok" ? "text-emerald-500" : r.state === "invalid" ? "text-destructive" : "text-amber-500";
+                            const icon = r.state === "ok" ? "✓" : r.state === "invalid" ? "✗" : "⚠";
+                            return <span className={`text-xs ${color}`}>{icon} {r.msg}</span>;
+                          })()}
+                        </div>
                       </div>
 
-                      {/* 自定义接入点（代理/自建端点，选填；留空走平台默认） */}
-                      <div className="mt-3">
-                        <Label className="text-xs text-muted-foreground mb-1.5">
+                      {/* 自定义接入点（代理/自建端点，选填）——收进折叠，默认不打扰新手 */}
+                      <details className="mt-3">
+                        <summary className="text-xs text-muted-foreground/70 cursor-pointer list-none select-none hover:text-muted-foreground">
                           {t("providerBaseUrlLabel")}
-                        </Label>
-                        <Input
-                          value={provider.baseUrl ?? ""}
-                          onChange={(e) =>
-                            setProvider(platform.key, {
-                              ...provider,
-                              baseUrl: e.target.value || undefined,
-                            })
-                          }
-                          placeholder={t("providerBaseUrlPlaceholder")}
-                          className="font-mono text-xs"
-                        />
-                      </div>
+                        </summary>
+                        <div className="mt-2">
+                          <Input
+                            value={provider.baseUrl ?? ""}
+                            onChange={(e) =>
+                              setProvider(platform.key, {
+                                ...provider,
+                                baseUrl: e.target.value || undefined,
+                              })
+                            }
+                            placeholder={t("providerBaseUrlPlaceholder")}
+                            className="font-mono text-xs"
+                          />
+                        </div>
+                      </details>
                     </CardContent>
                   </Card>
                 );
@@ -931,8 +988,16 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* 自定义模型接入点 + 生成参数 */}
-              <GenerationSettings />
+              {/* 自定义模型接入点 + 生成参数（高级，默认折叠，不打扰新手） */}
+              <details className="group rounded-xl border border-border/50 bg-card/30">
+                <summary className="flex items-center justify-between cursor-pointer list-none select-none px-5 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+                  <span>高级 · 自定义模型接入点 / 生成参数</span>
+                  <svg className="size-4 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
+                </summary>
+                <div className="px-1 pb-1 space-y-4">
+                  <GenerationSettings />
+                </div>
+              </details>
             </div>
           </TabsContent>
           {/* Tab 3: 出镜人物管理 */}
