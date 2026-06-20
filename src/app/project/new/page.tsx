@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LuArrowLeft, LuUpload, LuX, LuCircleAlert, LuZap, LuUser, LuUserX, LuBox, LuLayoutGrid, LuEye, LuVideo, LuBookmark } from "react-icons/lu";
 import { useCharacterStore } from "@/lib/stores/project-store";
 import { useTemplateStore } from "@/lib/stores/template-store";
-import { exampleProducts, type ExampleProduct } from "@/lib/examples";
+import { getExampleProducts, type ExampleProduct } from "@/lib/examples";
 import { useSettingsStore } from "@/lib/stores/settings-store";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useT } from "@/lib/i18n";
+import { useT, useLocale } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 // 商品品类选项（label 改为 i18n key，渲染时经 t() 转换）
@@ -54,6 +54,7 @@ export default function NewProjectPage() {
   const router = useRouter();
   const t = useT("newProject");
   const tc = useT("common");
+  const locale = useLocale();
 
   // 检查 LLM API 配置状态
   const { llm, providers } = useSettingsStore();
@@ -353,7 +354,7 @@ export default function NewProjectPage() {
               </div>
               <p className="text-xs text-muted-foreground mb-4">{t("quickStartDesc")}</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {exampleProducts.map((ex) => (
+                {getExampleProducts(locale).map((ex) => (
                   <button
                     key={ex.id}
                     type="button"

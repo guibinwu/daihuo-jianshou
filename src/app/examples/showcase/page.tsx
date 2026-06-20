@@ -5,9 +5,9 @@ import { LuArrowLeft, LuPlus } from "react-icons/lu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { exampleShowcase, exampleTemplates } from "@/lib/examples";
+import { getExampleShowcase, getExampleTemplates } from "@/lib/examples";
 import type { Shot } from "@/lib/db/schema";
-import { useT } from "@/lib/i18n";
+import { useT, useLocale } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 // 镜头类型标签（label 走 showcase 命名空间词条 key，按语言取）
@@ -23,7 +23,8 @@ const shotTypeLabels: Record<Shot["type"], { labelKey: string; color: string }> 
 export default function ShowcasePage() {
   const t = useT("showcase");
   const tc = useT("common");
-  const sc = exampleShowcase;
+  const locale = useLocale();
+  const sc = getExampleShowcase(locale);
 
   return (
     <div className="min-h-screen grid-bg">
@@ -126,7 +127,7 @@ export default function ShowcasePage() {
           </div>
           <p className="text-xs text-muted-foreground mb-4">{t("templatesDesc")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {exampleTemplates.map((tpl) => (
+            {getExampleTemplates(locale).map((tpl) => (
               <Card key={tpl.id} className="glass-card">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-2">

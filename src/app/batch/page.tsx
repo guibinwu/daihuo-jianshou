@@ -19,8 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useProductLibraryStore } from "@/lib/stores/product-library-store";
 import { useSettingsStore } from "@/lib/stores/settings-store";
-import { exampleProducts } from "@/lib/examples";
-import { useT } from "@/lib/i18n";
+import { getExampleProducts } from "@/lib/examples";
+import { useT, useLocale } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 // 视频模式选项（labelKey 指向 batch 命名空间词条，渲染时取译文）
@@ -96,6 +96,7 @@ const statusColors: Record<TaskStatus, string> = {
 export default function BatchPage() {
   const t = useT("batch");
   const tc = useT("common");
+  const locale = useLocale();
   // 真实商品库 + LLM 配置
   const { products, incrementVideoCount, addProduct } = useProductLibraryStore();
   const { llm } = useSettingsStore();
@@ -103,7 +104,7 @@ export default function BatchPage() {
   // 一键导入示例商品
   const importExamples = useCallback(() => {
     const existing = new Set(products.map((p) => p.name));
-    exampleProducts.forEach((ex) => {
+    getExampleProducts(locale).forEach((ex) => {
       if (existing.has(ex.name)) return;
       addProduct({
         id: crypto.randomUUID(),
@@ -117,7 +118,7 @@ export default function BatchPage() {
         createdAt: new Date(),
       });
     });
-  }, [products, addProduct]);
+  }, [products, addProduct, locale]);
   // 避免 SSR/水合不一致：挂载后再渲染列表
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);

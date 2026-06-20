@@ -20,8 +20,8 @@ import {
   useProductLibraryStore,
   type ProductItem,
 } from "@/lib/stores/product-library-store";
-import { exampleProducts } from "@/lib/examples";
-import { useT } from "@/lib/i18n";
+import { getExampleProducts } from "@/lib/examples";
+import { useT, useLocale } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 // 品类选项（label 用 i18n key，运行时经 t() 取对应语言文案）
@@ -51,13 +51,14 @@ const categoryLabelKeyMap: Record<string, string> = Object.fromEntries(
 
 export default function ProductsPage() {
   const t = useT("products");
+  const locale = useLocale();
   const { products, addProduct, updateProduct, removeProduct } =
     useProductLibraryStore();
 
   // 一键导入示例商品（方便新手快速体验批量出片/爆款复刻）
   const importExamples = useCallback(() => {
     const existingNames = new Set(products.map((p) => p.name));
-    exampleProducts.forEach((ex) => {
+    getExampleProducts(locale).forEach((ex) => {
       if (existingNames.has(ex.name)) return;
       addProduct({
         id: crypto.randomUUID(),
@@ -71,7 +72,7 @@ export default function ProductsPage() {
         createdAt: new Date(),
       });
     });
-  }, [products, addProduct]);
+  }, [products, addProduct, locale]);
 
   // 表单状态
   const [isFormOpen, setIsFormOpen] = useState(false);

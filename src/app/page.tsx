@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSettingsStore } from "@/lib/stores/settings-store";
-import { exampleShowcase } from "@/lib/examples";
-import { useT } from "@/lib/i18n";
+import { getExampleShowcase } from "@/lib/examples";
+import { useT, useLocale } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 // 首页项目列表项（来自 GET /api/project，updatedAt 经 JSON 序列化为字符串）
@@ -33,6 +33,8 @@ const statusMeta: Record<string, { key: string; color: string }> = {
 export default function HomePage() {
   const t = useT("home");
   const tc = useT("common");
+  const locale = useLocale();
+  const showcase = getExampleShowcase(locale);
   // 拉取真实项目列表（修复 issue #3：旧版写死 mock，用户创建后回首页永远找不到自己的项目）
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
@@ -312,7 +314,7 @@ export default function HomePage() {
                 <CardContent className="p-0">
                   <div className="relative aspect-video bg-muted/30 rounded-t-lg overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={exampleShowcase.cover} alt={exampleShowcase.title} className="h-full w-full object-cover" />
+                    <img src={showcase.cover} alt={showcase.title} className="h-full w-full object-cover" />
                     <div className="absolute top-2 left-2">
                       <Badge className="bg-black/60 text-white border-0 text-xs">{t("exampleBadge")}</Badge>
                     </div>
@@ -324,10 +326,10 @@ export default function HomePage() {
                   </div>
                   <div className="p-4">
                     <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                      {exampleShowcase.title}
+                      {showcase.title}
                     </h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {t("showcaseSubtitle", { style: exampleShowcase.styleLabel, shots: exampleShowcase.shots.length, duration: exampleShowcase.totalDuration })}
+                      {t("showcaseSubtitle", { style: showcase.styleLabel, shots: showcase.shots.length, duration: showcase.totalDuration })}
                     </p>
                   </div>
                 </CardContent>
