@@ -56,6 +56,8 @@ export default function ScriptPage() {
     description: string;
     productImages: string[];
     videoMode: string;
+    contentType: string;
+    topic: string;
   } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [genError, setGenError] = useState("");
@@ -79,6 +81,8 @@ export default function ScriptPage() {
           description: proj.productDescription ?? "",
           productImages: Array.isArray(proj.productImages) ? proj.productImages : [],
           videoMode: proj.videoMode ?? "product_closeup",
+          contentType: proj.contentType ?? "product",
+          topic: proj.topic ?? "",
         });
       }
       if (Array.isArray(dbScripts) && dbScripts.length > 0) {
@@ -106,7 +110,7 @@ export default function ScriptPage() {
     }
   };
 
-  // 空态点击「生成脚本」：用项目已存的商品信息 + 设置里的 LLM 重新生成
+  // 空态点击「生成脚本」：topic 主题项目走去商品化脚本引擎，带货项目走商品脚本引擎
   const handleGenerate = async () => {
     if (!projectMeta) return;
     if (!llm.apiKey) {
@@ -116,25 +120,36 @@ export default function ScriptPage() {
     setIsGenerating(true);
     setGenError("");
     try {
-      const res = await fetch("/api/llm/script", {
+      const isTopic = projectMeta.contentType === "topic";
+      // topic 项目用 /api/topic/script（无需商品）；否则用带货脚本引擎
+      const endpoint = isTopic ? "/api/topic/script" : "/api/llm/script";
+      const payload = isTopic
+        ? {
+            projectId: id,
+            topic: projectMeta.topic || projectName,
+            targetDuration: 25,
+            llmConfig: { baseUrl: llm.baseUrl, apiKey: llm.apiKey, model: llm.model },
+          }
+        : {
+            projectId: id,
+            productName: projectMeta.productName,
+            category: projectMeta.category,
+            productDescription: projectMeta.description,
+            targetDuration: 30,
+            styleType: "auto",
+            videoMode: projectMeta.videoMode,
+            productImages: projectMeta.productImages,
+            llmConfig: {
+              baseUrl: llm.baseUrl,
+              apiKey: llm.apiKey,
+              model: llm.model,
+              visionModel: llm.visionModel,
+            },
+          };
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: id,
-          productName: projectMeta.productName,
-          category: projectMeta.category,
-          productDescription: projectMeta.description,
-          targetDuration: 30,
-          styleType: "auto",
-          videoMode: projectMeta.videoMode,
-          productImages: projectMeta.productImages,
-          llmConfig: {
-            baseUrl: llm.baseUrl,
-            apiKey: llm.apiKey,
-            model: llm.model,
-            visionModel: llm.visionModel,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
@@ -168,6 +183,8 @@ export default function ScriptPage() {
               description: proj.productDescription ?? "",
               productImages: Array.isArray(proj.productImages) ? proj.productImages : [],
               videoMode: proj.videoMode ?? "product_closeup",
+              contentType: proj.contentType ?? "product",
+              topic: proj.topic ?? "",
             });
           }
         }
