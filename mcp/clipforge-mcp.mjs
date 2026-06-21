@@ -26,7 +26,21 @@ const LLM = {
   model: process.env.CLIPFORGE_LLM_MODEL || "",
 };
 
+// 免费素材源 Key（可选）：配了就能拿 Pexels/Pixabay 的视频 B-roll；不配则走 keyless Openverse 图片
+const STOCK_KEYS = {};
+if (process.env.CLIPFORGE_PIXABAY_KEY) STOCK_KEYS.pixabay = process.env.CLIPFORGE_PIXABAY_KEY;
+if (process.env.CLIPFORGE_PEXELS_KEY) STOCK_KEYS.pexels = process.env.CLIPFORGE_PEXELS_KEY;
+const HAS_STOCK_VIDEO_KEY = Boolean(STOCK_KEYS.pixabay || STOCK_KEYS.pexels);
+
 const NARRATION_STYLES = ["knowledge", "story", "lifestyle", "inspiration", "travel"];
+const FOOTAGE_KINDS = ["auto", "image", "video"];
+
+/** footage=auto 时：配了 Pexels/Pixabay Key 取视频 B-roll，否则用 keyless Openverse 图片 */
+function resolveMediaType(footage) {
+  const f = FOOTAGE_KINDS.includes(footage) ? footage : "auto";
+  if (f === "auto") return HAS_STOCK_VIDEO_KEY ? "video" : "image";
+  return f;
+}
 
 /** 调用 ClipForge HTTP API；非 2xx 抛出携带后端 error 文案的异常 */
 async function api(path, { method = "GET", body, timeoutMs = 600000 } = {}) {
@@ -106,6 +120,11 @@ const TOOLS = [
         topic: { type: "string", description: "一句话主题，如「在家如何泡一杯手冲咖啡」" },
         narrationStyle: { type: "string", enum: NARRATION_STYLES, description: "旁白风格，默认 knowledge" },
         durationSec: { type: "number", description: "目标时长（秒），默认 25" },
+        footage: {
+          type: "string",
+          enum: FOOTAGE_KINDS,
+          description: "画面类型：auto（默认，配了 Pexels/Pixabay Key 用视频 B-roll，否则免 Key 图片）/ image / video",
+        },
       },
       required: ["topic"],
     },
@@ -152,7 +171,18 @@ const TOOLS = [
       properties: {
         projectId: { type: "string", description: "项目 ID（来自 list_projects / generate_script）" },
         autoFillStock: { type: "boolean", description: "合成前是否先自动从免费素材库配齐缺画面的分镜，默认 true" },
+        footage: { type: "string", enum: FOOTAGE_KINDS, description: "自动配画面的类型，默认 auto" },
       },
+      required: ["projectId"],
+    },
+  },
+  {
+    name: "clipforge_get_video",
+    description:
+      "查询某项目最新一次合成的视频结果（状态 / 可下载地址），不触发重新合成——用于轮询 create_video/compose 的异步产物或取回此前做过的视频。不需要 LLM。",
+    inputSchema: {
+      type: "object",
+      properties: { projectId: { type: "string", description: "项目 ID" } },
       required: ["projectId"],
     },
   },
@@ -174,10 +204,11 @@ async function handleCreateVideo(args) {
   const projectId = scriptRes.projectId;
   const shots = scriptRes?.scripts?.[0]?.shots ?? [];
 
-  // 2) 配画面（免费素材，keyless Openverse 图片）
+  // 2) 配画面：默认免费 Openverse 图片；配了 Pexels/Pixabay Key 则按 footage 取视频 B-roll
+  const mediaType = resolveMediaType(args.footage);
   const fill = await api(`/api/project/${projectId}/stock-fill`, {
     method: "POST",
-    body: { source: "all", mediaType: "image" },
+    body: { source: "all", mediaType, apiKeys: STOCK_KEYS },
   });
 
   // 3) 合成（免费 Edge TTS 配音 + 字幕）
@@ -192,6 +223,7 @@ async function handleCreateVideo(args) {
     projectId,
     topic,
     narrationStyle,
+    footage: mediaType,
     shots: shots.length,
     footageFilled: `${fill.filled}/${fill.total}`,
     videoUrl: absVideoUrl(composition),
@@ -232,7 +264,7 @@ async function handleSearchStock(args) {
   const perPage = Number.isFinite(args.limit) ? Math.max(1, Math.min(30, Number(args.limit))) : 8;
   const res = await api("/api/stock/search", {
     method: "POST",
-    body: { query, source: "all", mediaType, perPage, download: false },
+    body: { query, source: "all", mediaType, perPage, download: false, apiKeys: STOCK_KEYS },
   });
   const candidates = (res.candidates ?? []).slice(0, perPage).map((c) => ({
     title: c.title,
@@ -265,7 +297,7 @@ async function handleCompose(args) {
   if (autoFill) {
     await api(`/api/project/${projectId}/stock-fill`, {
       method: "POST",
-      body: { source: "all", mediaType: "image" },
+      body: { source: "all", mediaType: resolveMediaType(args.footage), apiKeys: STOCK_KEYS },
     }).catch(() => {}); // 配画面失败不阻断合成（可能已有素材）
   }
   await api(`/api/project/${projectId}/compose`, {
@@ -276,12 +308,23 @@ async function handleCompose(args) {
   return ok({ ok: true, projectId, videoUrl: absVideoUrl(composition), status: composition.status });
 }
 
+async function handleGetVideo(args) {
+  const projectId = String(args.projectId || "").trim();
+  if (!projectId) throw new Error("projectId 不能为空");
+  const { composition } = await api(`/api/project/${projectId}/compose`);
+  if (!composition) {
+    return ok({ ok: true, projectId, status: "none", videoUrl: null, hint: "该项目还没有合成记录，用 clipforge_compose 出片。" });
+  }
+  return ok({ ok: true, projectId, status: composition.status, videoUrl: absVideoUrl(composition) });
+}
+
 const HANDLERS = {
   clipforge_create_video: handleCreateVideo,
   clipforge_generate_script: handleGenerateScript,
   clipforge_search_stock: handleSearchStock,
   clipforge_list_projects: handleListProjects,
   clipforge_compose: handleCompose,
+  clipforge_get_video: handleGetVideo,
 };
 
 // ---- 启动 MCP server ----
