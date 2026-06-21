@@ -1,8 +1,10 @@
 <p align="center"><img src="docs/banner.png" alt="ClipForge — 一句话/商品图成片，面向 TikTok、Reels、Shorts 的 AI 短视频工具" width="820"/></p>
 
-# ClipForge — AI 短视频带货创作工具
+# ClipForge — 开源免费 AI 短视频生成工具 ｜ 一句话 / 商品图一键成片
 
-> **AI Short-Video Creator** | 一句话主题、或一张商品图 → AI 写脚本、自动配画面、免费配音、烧字幕 → 一键产出抖音 / 快手 / 小红书 / TikTok 竖屏带货短视频
+> 输入**一句话**或**一张商品图**，几十秒产出可直接发布的 **抖音 / 快手 / 小红书 / TikTok 竖屏短视频**——AI 写脚本 · 自动配画面 · 免费配音 · 自动字幕。**全程 0 API Key · 无水印 · 本地运行 · 中英双语。**
+>
+> <sub>📌 原『**带货剪手** / daihuo-jianshou』升级而来，仓库 · Star · 历史全部延续，旧链接自动跳转。</sub>
 
 <p align="right"><a href="README.en.md">English</a> · <strong>中文</strong></p>
 
@@ -17,18 +19,29 @@
   <img src="https://img.shields.io/badge/AI-多模型聚合-FF6F00?style=flat-square" alt="AI Multi-Model" />
 </p>
 
-**ClipForge** 是一款本地优先、开源的 AI 短视频创作工具，**界面支持中文 / English 一键切换**。两条零门槛路径：
+## 🔥 凭什么选 ClipForge
 
-- **一句话主题成片**（无需任何商品、无需任何 API Key）：输入一句话主题 → AI 写旁白脚本 → 从免费素材库（Openverse 免 Key）自动配齐画面 → 免费 AI 配音（微软 Edge keyless TTS）→ FFmpeg 合成竖屏成片。
-- **商品带货成片**：上传商品图 → AI 分析卖点、生成多套脚本 → 逐镜头生成素材 → 合成 → 一键导出抖音 / 快手 / 小红书 / TikTok 等平台版本。
+> 一句话总结：**别人按条扣费、带水印、要你上传云端；ClipForge 开源免费、无水印、全程本地、零 Key 也能成片。**
+
+- 🆓 **真·免费，零 Key**：免费路径全程不需要任何 API Key——免费素材（Openverse 图片 + **Wikimedia 实拍视频**）+ 免费微软 Edge TTS 配音 + 本地 FFmpeg 合成，**0 成本出片**。
+- 🚫 **无水印 · 可商用**：自部署、开源（AGPL-3.0），成片干净。
+- 🔒 **本地优先 · 隐私**：项目、素材、API Key 全在你自己机器，**不上传任何云**。
+- 🛍️ **带货 + 通用双场景**：上传商品图做带货种草（**商品原图保真、不变形**），或一句话主题成片（科普 / 生活 / 旅行任意题材）。
+- 🎬 **免 Key 实拍视频 B-roll**：开箱即用的免费视频源（Wikimedia Commons），不止静态图——逐镜「视频优先、缺则图片」。
+- 🤖 **能被 AI Agent 调用**：内置 **MCP Server**，在 Claude Desktop / Claude Code / Cursor 里一句话成片。
+- 🧩 **多模型聚合（可选）**：一个接口接 **7 大**生图/生视频平台、30+ 模型（Seedance 2.0 / GPT Image 2 / Kling 3.0 / Veo 3 …），想要更高画质再用。
+- 🌍 **中英双语**：界面 + 文档中英一键切换，按系统语言自动判定。
+
+## 🎬 两种零门槛玩法
+
+- **🗣️ 一句话主题成片**（0 Key）：输入一句话 → AI 写旁白脚本 → 免费素材库自动配齐画面（含免 Key 实拍视频）→ 免费 AI 配音 → FFmpeg 合成竖屏成片。
+- **🛍️ 商品带货成片**：上传商品图 → AI 分析卖点、生成多套带货脚本 → 逐镜生成 / 配画面 → 合成 → 一键导出抖音 / 快手 / 小红书 / TikTok 规格。
 
 <p align="center"><img src="docs/hero.png" alt="ClipForge 工作流：一句话 / 商品图 → AI 脚本 → 自动配画面 → 免费配音 → 字幕 → 竖屏成片" width="820"/></p>
 
-带货只是其中转化最强的一种模板，而非唯一前提——ClipForge 面向全球任意主题的短视频创作。
+> 🌍 带货只是转化最强的模板之一，而非前提——ClipForge 面向**任意主题**的短视频创作，并在推进 **Electron 一键桌面包**（Win/Mac 双击即用，详见 [Roadmap](#roadmap)）。
 
-> 🌍 全球化 & 通用化：多语言 UI、多源免费素材、免费配音兜底，目标是让不懂技术的人零配置也能成片；并在推进 **Electron 一键桌面包**（Win/Mac 双击即用）。详见 [Roadmap](#roadmap)。
-
-**关键词**: AI video generator / short-video automation / AI script / text-to-video / 电商带货 / 抖音 / 快手 / 小红书 / TikTok / AIGC / Seedance 2.0 / GPT Image 2 / Kling 3.0 / Veo 3 / FLUX / Edge TTS / Openverse
+**关键词 / Keywords**: AI 短视频生成 · AI 带货剪辑 · 一句话成片 · 文字转视频 / text to video · 抖音 / 快手 / 小红书 / TikTok / Reels / Shorts 短视频制作 · faceless video generator · AI UGC 电商广告 · AI 配音 · 免费素材自动剪辑 · 开源自部署视频工具 · MCP · Seedance 2.0 · GPT Image 2 · Edge TTS · Wikimedia / Openverse
 
 ---
 
@@ -57,6 +70,36 @@
 | **批量出片** | 一天最多 3-5 条 | 选 10 个商品一键批量生成 |
 | **成本** | 编导+拍摄+剪辑 数千元/条 | API 调用费 几元/条 |
 
+> 💡 免费路径（免费素材 + 免费配音 + 本地合成）**成本为 0**；只有选用付费 AI 生图 / 生视频模型时才按平台计费（几元/条）。
+
+---
+
+## ❓ 常见问题 FAQ
+
+**ClipForge 是什么？**
+ClipForge（原带货剪手 / daihuo-jianshou）是一款**开源免费的 AI 短视频生成工具**：输入一句话主题或一张商品图，自动生成脚本、配画面、配音、字幕，一键产出抖音 / 快手 / 小红书 / TikTok 竖屏短视频。
+
+**真的完全免费吗？需要 API Key 吗？**
+免费路径 **0 Key**：素材用免费可商用 CC 库（Openverse 图片 + Wikimedia 实拍视频），配音用免费微软 Edge TTS，合成用本地 FFmpeg。只有想用付费 AI 生图 / 生视频模型时，才需要对应平台的 Key。
+
+**能做带货 / 电商短视频吗？**
+能。上传商品图，AI 自动分析卖点、写多套带货脚本，并**保持商品原图不变形**，一键导出抖音小店 / 快手 / 小红书 / TikTok Shop 规格。
+
+**成片有水印吗？可以商用吗？**
+没有水印。自部署 + 开源（AGPL-3.0），成片干净，可商用（第三方素材按其授权使用，导出附带署名 credits）。
+
+**和剪映 / 商业 AI 视频 SaaS 有什么区别？**
+ClipForge **开源、本地运行、无水印、免费路径零成本、数据不出本机**；商业 SaaS 通常按条扣费、带水印、需把素材上传云端。
+
+**不会写脚本 / 不会剪辑能用吗？**
+能。全流程自动——AI 写脚本、自动配画面、自动配音、自动烧字幕、自动转场，**不用出镜、不用拍摄、不用剪辑**。
+
+**支持哪些平台和语言？**
+一键适配抖音 (9:16) / 快手 / 小红书 (3:4) / TikTok / Reels / Shorts；界面与文档支持**中文 / English**，按系统语言自动切换。
+
+**可以让 AI 助手（Claude / Cursor）直接生成视频吗？**
+可以。ClipForge 内置 **MCP Server**，在支持 MCP 的客户端里一句话即可驱动出片，详见 [mcp/README.md](mcp/README.md)。
+
 ---
 
 ## 核心功能
@@ -71,7 +114,7 @@
 
 ### 二、AI 素材生成（多模型聚合）
 
-一个接口聚合 6 大生图/生视频平台 + OpenRouter LLM、30+ 主流模型：
+一个接口聚合 7 大生图/生视频平台 + OpenRouter LLM、30+ 主流模型：
 
 | 平台 | 图片模型 | 视频模型 | 特色 |
 |------|---------|---------|------|
@@ -81,6 +124,7 @@
 | **火山引擎（方舟 Ark）** | Seedream 5.0/4.0 | Seedance 2.0/1.0 Pro(原生音频) | 字节系明星模型，电影级画质，速度快 |
 | **阿里百炼** | 通义万相 | 万相 2.6/2.5/2.2/2.1 | 商品图生视频效果好 |
 | **硅基流动** | Kolors, Qwen-Image | - | 国产高性价比 |
+| **OpenAI** | **gpt-image-2**（任意分辨率+图生图编辑）, gpt-image-1.5 | - | 2026 官方旗舰图像模型，文字渲染强、9:16 竖屏直出、商品保真编辑 |
 
 > **LLM（脚本生成）** 走 OpenAI 兼容协议，内置 Atlas Cloud / **OpenRouter**(400+模型) / DeepSeek / Kimi / 智谱 / 豆包 / OpenAI 等一键预设。
 
@@ -211,7 +255,7 @@ open http://localhost:3000
 ┌──────────────────▼──────────────────────────────┐
 │  业务逻辑层                                      │
 │  脚本引擎 (Prompt + 模板 + SEO)                   │
-│  AI Provider 抽象层 (6 平台 30+ 模型)              │
+│  AI Provider 抽象层 (7 平台 30+ 模型)              │
 │  多源素材引擎 (Openverse/Pixabay/Pexels 聚合检索)   │
 │  视频合成引擎 (FFmpeg + 转场 + 运动 + 混音)         │
 └──────────────────┬──────────────────────────────┘
@@ -230,7 +274,7 @@ open http://localhost:3000
 | **状态管理** | Zustand (localStorage persist) |
 | **数据库** | SQLite + Drizzle ORM（启动自动 migrate，开箱无表也能跑） |
 | **视频合成** | FFmpeg (fluent-ffmpeg) |
-| **AI 集成** | OpenAI SDK (LLM) + 6 平台生图/生视频 Provider |
+| **AI 集成** | OpenAI SDK (LLM) + 7 平台生图/生视频 Provider |
 | **素材引擎** | 多源版权素材（Openverse 免 Key / Pixabay / Pexels），注册表式聚合检索 |
 | **测试** | Vitest (102 用例) + Playwright (E2E) |
 | **CI/CD** | GitHub Actions（lint + test + build） |
@@ -259,7 +303,7 @@ src/
 │   └── api/                          # API 路由
 │
 ├── lib/
-│   ├── providers/                    # AI Provider 抽象层（6平台）+ 多源素材引擎
+│   ├── providers/                    # AI Provider 抽象层（7平台）+ 多源素材引擎
 │   │   ├── stock-types.ts            #   素材候选/下载/源注册表
 │   │   ├── openverse.ts pixabay.ts pexels.ts  # 各素材源
 │   │   └── stock-registry.ts         #   单源/聚合检索分发
@@ -341,7 +385,7 @@ pnpm dist       # 出 .dmg 安装包
 
 **已完成（带货全链路 + 基建）**
 - [x] AI 脚本生成（5 品类 × 4 风格 + 黄金 3 秒 + 平台 SEO）
-- [x] 多模型聚合（6 平台 30+ 模型，含 Seedance 2.0 / GPT Image 2 / Kling 3.0）
+- [x] 多模型聚合（7 平台 30+ 模型，含 Seedance 2.0 / GPT Image 2 / Kling 3.0）
 - [x] 素材生成接入真实模型 + **商品保真**（image-to-image 锁定商品主体）
 - [x] 视频合成引擎（FFmpeg，真实出片 + 中文字幕烧录 + 运镜 + textOverlay 价格贴）
 - [x] 配音 TTS（OpenAI 兼容）+ BGM 上传混音压低
@@ -370,3 +414,9 @@ pnpm dist       # 出 .dmg 安装包
 [AGPL-3.0](LICENSE) © 2026 xixihhhh
 
 修改 / 再发布（含 SaaS）须开源并保留署名。
+
+---
+
+<sub><b>关键词 / Keywords</b>：AI 短视频生成工具 · AI 带货短视频 · 一句话成片 · 文字转视频 · text to video · faceless video generator · AI short video maker · 抖音 / 快手 / 小红书 / TikTok / Reels / YouTube Shorts 制作 · AI UGC 电商广告 · AI 配音 / AI voiceover · 免费素材自动剪辑 · 开源 / 自部署视频工具 · AI 脚本生成 · MCP server · ClipForge（原带货剪手 / daihuo-jianshou）。</sub>
+
+<sub>ClipForge 是独立开源项目，与抖音、快手、小红书、TikTok、YouTube、Shopify、Amazon、Microsoft、OpenAI 及任何模型供应商无官方关联；使用第三方模型与素材请遵守其各自条款。</sub>
