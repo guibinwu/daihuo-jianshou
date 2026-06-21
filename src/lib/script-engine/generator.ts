@@ -478,5 +478,13 @@ export function parseScriptResponse(content: string, fallbackStyleType: string):
     throw new Error("无法解析 LLM 返回的脚本格式");
   }
 
-  return rawScripts.map((raw) => validateScript(raw, fallbackStyleType));
+  // 丢弃没有任何分镜的脚本（LLM 偶尔返回只有 title、缺 shots 的残缺条目）；
+  // 全部为空则抛错——否则会把「零分镜脚本」当成功落库，下游配画面/合成无米可炊却不报错。
+  const scripts = rawScripts
+    .map((raw) => validateScript(raw, fallbackStyleType))
+    .filter((s) => s.shots.length > 0);
+  if (scripts.length === 0) {
+    throw new Error("LLM 未生成有效分镜（脚本为空），请重试或调整输入");
+  }
+  return scripts;
 }

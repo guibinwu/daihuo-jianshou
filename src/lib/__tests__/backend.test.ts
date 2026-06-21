@@ -382,6 +382,22 @@ describe("parseScriptResponse", () => {
     expect(() => parseScriptResponse(content, "pain_point")).toThrow("无法解析");
   });
 
+  it("批量里只有 title、缺 shots 的残缺条目被丢弃，只保留有分镜的", () => {
+    const content = JSON.stringify({
+      scripts: [
+        { title: "残缺" }, // 缺 shots → 应被丢弃
+        { title: "完整", totalDuration: 6, shots: [{ shotId: 1, type: "hook", duration: 3, description: "a", camera: "b", visualSource: "ai_generate", transition: "direct_concat", voiceover: "c" }] },
+      ],
+    });
+    const scripts = parseScriptResponse(content, "pain_point");
+    expect(scripts).toHaveLength(1);
+    expect(scripts[0].title).toBe("完整");
+  });
+
+  it("所有脚本都没有分镜 → 抛错（不让零分镜脚本被当成功落库）", () => {
+    expect(() => parseScriptResponse(JSON.stringify({ scripts: [{ title: "空1" }, { title: "空2", shots: [] }] }), "pain_point")).toThrow("有效分镜");
+  });
+
   it("把 LLM 的 searchTerms 解析为 stockKeywords（去空、trim、最多3个）", () => {
     const content = JSON.stringify({
       title: "t",

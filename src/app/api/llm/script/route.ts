@@ -133,8 +133,19 @@ export async function POST(req: NextRequest) {
     let savedScripts = scripts;
     const projectId = body.projectId;
     if (projectId) {
+      const db = getDb();
+      // 不能用带货脚本覆盖一句话主题项目（contentType 不符则拒绝，避免删掉它的主题脚本）
+      const proj = await db
+        .select({ contentType: projects.contentType })
+        .from(projects)
+        .where(eq(projects.id, projectId));
+      if (proj.length > 0 && proj[0].contentType === "topic") {
+        return NextResponse.json(
+          { error: "该项目是一句话主题项目，请勿用带货脚本覆盖", projectId },
+          { status: 409 }
+        );
+      }
       try {
-        const db = getDb();
         // 先清掉该项目旧脚本（重新生成时覆盖）
         await db.delete(scriptsTable).where(eq(scriptsTable.projectId, projectId));
         const rows = await db
@@ -166,8 +177,9 @@ export async function POST(req: NextRequest) {
           .set({ status: "scripting", ...(analysis && { productAnalysis: analysis }), updatedAt: new Date() })
           .where(eq(projects.id, projectId));
       } catch (e) {
-        // 落库失败不阻塞返回（前端仍可拿到脚本），但记录日志
+        // 落库失败必须报错，不能回退到 200——否则前端按成功跳转却从 DB 读到空脚本（且可能已删旧脚本）
         console.error("脚本落库失败:", e);
+        return NextResponse.json({ error: "脚本落库失败，请重试", projectId }, { status: 500 });
       }
     }
 

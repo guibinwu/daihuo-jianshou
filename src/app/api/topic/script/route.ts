@@ -57,9 +57,19 @@ export async function POST(req: NextRequest) {
   // 取已有项目或新建一个 topic 项目（建项目放在生成前，生成失败也能落到草稿项目供重试）
   let projectId = typeof body.projectId === "string" && body.projectId ? body.projectId : "";
   if (projectId) {
-    const exists = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, projectId));
+    const exists = await db
+      .select({ id: projects.id, contentType: projects.contentType })
+      .from(projects)
+      .where(eq(projects.id, projectId));
     if (exists.length === 0) {
       return NextResponse.json({ error: "项目不存在" }, { status: 404 });
+    }
+    // 不能用一句话主题脚本覆盖带货项目——否则会把它静默改成 topic 并删掉其已有脚本
+    if (exists[0].contentType === "product") {
+      return NextResponse.json(
+        { error: "该项目是带货项目，请新建主题项目而不是覆盖它", projectId },
+        { status: 409 }
+      );
     }
   } else {
     const [created] = await db
@@ -117,7 +127,9 @@ export async function POST(req: NextRequest) {
       .set({ status: "scripting", contentType: "topic", topic, updatedAt: new Date() })
       .where(eq(projects.id, projectId));
   } catch (e) {
+    // 落库失败必须报错，不能再回退到 200——否则前端按成功跳转却从 DB 读到空脚本（且可能已删旧脚本=数据丢失）
     console.error("主题脚本落库失败:", e);
+    return NextResponse.json({ error: "脚本落库失败，请重试", projectId }, { status: 500 });
   }
 
   return NextResponse.json({ projectId, scripts: savedScripts });
