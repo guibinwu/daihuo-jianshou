@@ -23,6 +23,8 @@ import {
 import {
   stripHtml,
   wikimediaRequiresAttribution,
+  derivativeHeight,
+  pickWikimediaVideoSrc,
   toWikimediaCandidate,
   type CommonsPage,
 } from "@/lib/providers/wikimedia";
@@ -208,6 +210,63 @@ describe("Wikimedia 归一化", () => {
 
   it("无 imageinfo/直链 → 返回 null（被过滤）", () => {
     expect(toWikimediaCandidate({ pageid: 1, title: "File:x" }, "image")).toBeNull();
+  });
+
+  it("derivativeHeight：优先 height 字段，否则从 transcodekey 解析", () => {
+    expect(derivativeHeight({ height: 480 })).toBe(480);
+    expect(derivativeHeight({ transcodekey: "480p.vp9.webm" })).toBe(480);
+    expect(derivativeHeight({ type: "video/ogg" })).toBe(0);
+  });
+
+  it("pickWikimediaVideoSrc：选 ≤720p 最高的 webm 转码（240p+480p → 480p）", () => {
+    const src = pickWikimediaVideoSrc(
+      [
+        { transcodekey: "video/ogg", type: "video/ogg", src: "orig.ogv", height: 1080 }, // 原始非 webm
+        { transcodekey: "240p.vp9.webm", src: "v240.webm" },
+        { transcodekey: "480p.vp9.webm", src: "v480.webm" },
+      ],
+      "orig.ogv",
+    );
+    expect(src).toBe("v480.webm");
+  });
+
+  it("pickWikimediaVideoSrc：全部 >720 → 取最小的 webm", () => {
+    const src = pickWikimediaVideoSrc(
+      [
+        { transcodekey: "1080p.vp9.webm", src: "v1080.webm" },
+        { transcodekey: "2160p.vp9.webm", src: "v2160.webm" },
+      ],
+      "orig.ogv",
+    );
+    expect(src).toBe("v1080.webm");
+  });
+
+  it("pickWikimediaVideoSrc：无 webm 转码 → 回退原始直链", () => {
+    expect(pickWikimediaVideoSrc([{ transcodekey: "144p.mjpeg.mov", src: "x.mov" }], "orig.ogv")).toBe("orig.ogv");
+    expect(pickWikimediaVideoSrc(undefined, "orig.ogv")).toBe("orig.ogv");
+  });
+
+  it("toWikimediaCandidate：视频带 derivatives → downloadUrl 取 480p webm 转码", () => {
+    const page: CommonsPage = {
+      pageid: 9,
+      title: "File:Clip.ogv",
+      videoinfo: [
+        {
+          url: "https://upload.wikimedia.org/x/Clip.ogv",
+          mime: "application/ogg",
+          duration: 10,
+          extmetadata: { LicenseShortName: { value: "CC0" } },
+          derivatives: [
+            { transcodekey: "240p.vp9.webm", src: "https://up/Clip.240p.webm" },
+            { transcodekey: "480p.vp9.webm", src: "https://up/Clip.480p.webm" },
+          ],
+        },
+      ],
+    };
+    const c = toWikimediaCandidate(page, "video")!;
+    expect(c.mediaType).toBe("video");
+    expect(c.downloadUrl).toBe("https://up/Clip.480p.webm"); // 取转码版而非 .ogv 原始
+    expect(c.requiresAttribution).toBe(false); // CC0
   });
 });
 
