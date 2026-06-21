@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { scripts as scriptsTable, assets as assetsTable, type Shot } from "@/lib/db/schema";
 import { fillShotStock } from "@/lib/stock-fill";
@@ -50,11 +50,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "脚本没有分镜" }, { status: 400 });
   }
 
-  // 已有 stock 素材的分镜（避免重复配，除非 force）
+  // 已有任意素材的分镜（避免重复配、避免与 AI/商品素材在同一分镜上冲突，除非 force）
   const existing = await db
     .select({ shotId: assetsTable.shotId })
     .from(assetsTable)
-    .where(and(eq(assetsTable.projectId, id), eq(assetsTable.type, "stock_footage")));
+    .where(eq(assetsTable.projectId, id));
   const already = new Set(existing.map((e) => e.shotId));
 
   const searchOpts = { apiKeys, mediaType, orientation, perPage: 10 };

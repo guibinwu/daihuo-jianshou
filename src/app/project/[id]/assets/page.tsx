@@ -10,23 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { useSettingsStore } from "@/lib/stores/settings-store";
 import { mergeCustomModels, buildImageOptions, buildVideoOptions } from "@/lib/gen-params";
 import type { Shot } from "@/lib/db/schema";
+import { buildAssetRows, shouldOfferStockFill, type AssetItem } from "@/lib/assets-view";
 import { useT } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
-
-// 素材项（由真实脚本分镜派生）
-interface AssetItem {
-  shotId: number;
-  type: Shot["type"];
-  duration: number;
-  description: string;
-  prompt: string;
-  visualSource: Shot["visualSource"];
-  status: "pending" | "generating" | "done" | "failed";
-  thumbnailUrl?: string;
-  error?: string;
-  /** 素材是否为视频（已转动态镜头/图生视频） */
-  isVideo?: boolean;
-}
 
 // 镜头类型标签（label 改为 assets 命名空间的词条 key，按语言取）
 const shotTypeLabels: Record<Shot["type"], { key: string; color: string }> = {
@@ -72,6 +58,8 @@ export default function AssetsPage() {
   // 商品保真：AI 生成展示商品的分镜时，用商品原图作参考重绘，避免 AI 篡改商品（带货命门）
   const [productSafe, setProductSafe] = useState(true);
   const [projectName, setProjectName] = useState("");
+  // 项目类型：topic（无商品一句话成片）走免费素材库自动配画面
+  const [contentType, setContentType] = useState<string>("");
   const [modelTarget, setModelTarget] = useState<ImageModelTarget | null>(null);
   const [videoModelTarget, setVideoModelTarget] = useState<ImageModelTarget | null>(null);
   // 正在转动态镜头的分镜
@@ -79,9 +67,13 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
+  // 「自动配画面（免费素材）」状态
+  const [isFillingStock, setIsFillingStock] = useState(false);
+  const [stockMsg, setStockMsg] = useState<string | null>(null);
 
   const doneCount = assets.filter((a) => a.status === "done").length;
   const allDone = assets.length > 0 && doneCount === assets.length;
+  const offerStockFill = !loading && shouldOfferStockFill(assets, contentType, productImages.length);
 
   // 载入真实数据：项目信息 + 已选脚本分镜 + 解析默认生图模型所属平台
   useEffect(() => {
@@ -101,18 +93,11 @@ export default function AssetsPage() {
         const savedAssets = assetsRes.ok ? await assetsRes.json() : [];
         if (cancelled) return;
 
-        // 已落库素材按 shotId 索引，用于恢复"已生成"状态
-        const savedByShot = new Map<number, string>();
-        if (Array.isArray(savedAssets)) {
-          for (const a of savedAssets) {
-            if (a.filePath && a.status === "done") savedByShot.set(a.shotId, a.filePath);
-          }
-        }
-
         const imgs: string[] = project && Array.isArray(project.productImages) ? project.productImages : [];
         if (project) {
           setProjectName(project.name ?? project.productName ?? "");
           setProductImages(imgs);
+          setContentType(typeof project.contentType === "string" ? project.contentType : "");
         }
 
         // 取已选中的脚本（无 selected 则取第一套）
@@ -126,24 +111,8 @@ export default function AssetsPage() {
           return;
         }
 
-        setAssets(
-          (selected.shots as Shot[]).map((s) => {
-            const saved = savedByShot.get(s.shotId);
-            // 已落库素材 → 恢复为已就绪；商品原图分镜直接就绪；其余待生成
-            if (saved) {
-              return {
-                shotId: s.shotId, type: s.type, duration: s.duration, description: s.description,
-                prompt: s.prompt ?? "", visualSource: s.visualSource, status: "done" as const, thumbnailUrl: saved,
-              };
-            }
-            return {
-              shotId: s.shotId, type: s.type, duration: s.duration, description: s.description,
-              prompt: s.prompt ?? "", visualSource: s.visualSource,
-              status: s.visualSource === "product_image" ? ("done" as const) : ("pending" as const),
-              thumbnailUrl: s.visualSource === "product_image" ? imgs[0] : undefined,
-            };
-          })
-        );
+        // 选中脚本分镜 + 已落库素材 → 视图行（与「配画面后刷新」共用同一纯函数）
+        setAssets(buildAssetRows(selected.shots as Shot[], Array.isArray(savedAssets) ? savedAssets : [], imgs));
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : t("errorLoadFailed"));
       } finally {
@@ -154,6 +123,49 @@ export default function AssetsPage() {
       cancelled = true;
     };
   }, [id]);
+
+  // 重新拉取项目/脚本/素材并重建视图行（配画面后刷新缩略图，复用同一纯函数）
+  const reloadAssets = useCallback(async () => {
+    const [projectRes, scriptsRes, assetsRes] = await Promise.all([
+      fetch(`/api/project/${id}`),
+      fetch(`/api/project/${id}/scripts`),
+      fetch(`/api/project/${id}/assets`),
+    ]);
+    const project = projectRes.ok ? await projectRes.json() : null;
+    const scripts = scriptsRes.ok ? await scriptsRes.json() : [];
+    const savedAssets = assetsRes.ok ? await assetsRes.json() : [];
+    const imgs: string[] = project && Array.isArray(project.productImages) ? project.productImages : [];
+    const selected = Array.isArray(scripts)
+      ? scripts.find((s: { selected?: boolean }) => s.selected) ?? scripts[0]
+      : null;
+    if (selected && Array.isArray(selected.shots)) {
+      setAssets(buildAssetRows(selected.shots as Shot[], Array.isArray(savedAssets) ? savedAssets : [], imgs));
+    }
+  }, [id]);
+
+  // 一键「自动配画面（免费素材）」：从免费素材库（keyless Openverse 图片）按检索词逐镜配画面。
+  // 无需任何生图 Key —— 这是「一句话主题成片」零门槛闭环的关键一步。
+  const fillStock = useCallback(async () => {
+    if (isFillingStock) return;
+    setIsFillingStock(true);
+    setStockMsg(null);
+    try {
+      const res = await fetch(`/api/project/${id}/stock-fill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // 免费源以 Openverse 图片为主（视频源需 Pexels/Pixabay Key，后续在设置接入）
+        body: JSON.stringify({ source: "all", mediaType: "image" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || t("stockFillFailed"));
+      await reloadAssets();
+      setStockMsg(t("stockFilledMsg", { filled: data.filled ?? 0, total: data.total ?? 0 }));
+    } catch (e) {
+      setStockMsg(e instanceof Error ? e.message : t("stockFillFailed"));
+    } finally {
+      setIsFillingStock(false);
+    }
+  }, [id, isFillingStock, reloadAssets, t]);
 
   // 解析默认生图模型对应的平台（从 /api/ai/models 聚合结果里按 model 定位 provider）
   useEffect(() => {
@@ -469,6 +481,28 @@ export default function AssetsPage() {
                 {t("backToScript")}
               </Button>
             </Link>
+            {offerStockFill && (
+              <Button
+                onClick={fillStock}
+                disabled={isFillingStock}
+                variant="outline"
+                size="sm"
+                className="text-xs border-primary/50 text-primary hover:bg-primary/10"
+                title={t("stockFillHint")}
+              >
+                {isFillingStock ? (
+                  <>
+                    <LuLoaderCircle className="animate-spin w-3.5 h-3.5 mr-1" />
+                    {t("stockFilling")}
+                  </>
+                ) : (
+                  <>
+                    <LuImage className="w-3.5 h-3.5 mr-1" />
+                    {t("stockFill")}
+                  </>
+                )}
+              </Button>
+            )}
             <Button
               onClick={generateAll}
               disabled={isBatchGenerating || allDone || assets.length === 0}
@@ -490,6 +524,14 @@ export default function AssetsPage() {
             </Button>
           </div>
         </div>
+
+        {/* 自动配画面 提示/结果（免费素材，零 Key，topic 成片首选路径） */}
+        {offerStockFill && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/15 px-3 py-2 text-xs text-muted-foreground">
+            <LuImage className="w-3.5 h-3.5 text-primary/70 shrink-0" />
+            <span>{stockMsg ?? t("stockFillTip")}</span>
+          </div>
+        )}
 
         {/* 未配置生图模型提示 */}
         {!loading && !modelTarget && assets.some((a) => a.visualSource === "ai_generate") && (
@@ -560,7 +602,13 @@ export default function AssetsPage() {
                           )}
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span>
-                              {asset.visualSource === "product_image" ? t("sourceProductImage") : asset.visualSource === "ai_generate" ? t("sourceAiGenerate") : t("sourceUserUpload")}
+                              {asset.assetType === "stock_footage"
+                                ? t("sourceStock")
+                                : asset.visualSource === "product_image"
+                                ? t("sourceProductImage")
+                                : asset.visualSource === "ai_generate"
+                                ? t("sourceAiGenerate")
+                                : t("sourceUserUpload")}
                             </span>
                           </div>
                           {asset.status === "failed" && asset.error && (
