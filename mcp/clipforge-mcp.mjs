@@ -34,6 +34,8 @@ const HAS_STOCK_VIDEO_KEY = Boolean(STOCK_KEYS.pixabay || STOCK_KEYS.pexels);
 
 const NARRATION_STYLES = ["knowledge", "story", "lifestyle", "inspiration", "travel"];
 const FOOTAGE_KINDS = ["auto", "image", "video"];
+const ASPECT_RATIOS = ["9:16", "16:9", "1:1"]; // 9:16 竖屏(抖音/快手/Reels/Shorts) · 16:9 横屏 · 1:1 方形
+const QUALITY_PRESETS = ["fast", "standard", "hd"]; // 映射真实 FFmpeg 编码：分辨率 + x264 preset + crf
 
 /** footage=auto 时：配了 Pexels/Pixabay Key 取视频 B-roll，否则用 keyless Openverse 图片 */
 function resolveMediaType(footage) {
@@ -41,6 +43,22 @@ function resolveMediaType(footage) {
   if (f === "auto") return HAS_STOCK_VIDEO_KEY ? "video" : "image";
   return f;
 }
+
+/** 由工具入参拼出 compose 请求体：免费 TTS（可选音色）+ 画幅 + 画质预设 */
+function composeBody(args) {
+  const body = { freeTts: { enabled: true } };
+  if (typeof args.voice === "string" && args.voice) body.freeTts.voice = args.voice;
+  if (ASPECT_RATIOS.includes(args.aspectRatio)) body.aspectRatio = args.aspectRatio;
+  if (QUALITY_PRESETS.includes(args.quality)) body.renderPreset = args.quality;
+  return body;
+}
+
+/** create_video / compose 共用的「成片选项」JSON-Schema 属性 */
+const OUTPUT_OPTION_PROPS = {
+  voice: { type: "string", description: "Edge TTS 音色 value（见 clipforge_list_voices），默认 zh-CN-XiaoxiaoNeural" },
+  aspectRatio: { type: "string", enum: ASPECT_RATIOS, description: "画幅，默认 9:16 竖屏" },
+  quality: { type: "string", enum: QUALITY_PRESETS, description: "画质预设 fast/standard/hd，默认 standard" },
+};
 
 /** 调用 ClipForge HTTP API；非 2xx 抛出携带后端 error 文案的异常 */
 async function api(path, { method = "GET", body, timeoutMs = 600000 } = {}) {
@@ -127,6 +145,7 @@ const TOOLS = [
           enum: FOOTAGE_KINDS,
           description: "画面类型：auto（默认，配了 Pexels/Pixabay Key 用视频 B-roll，否则免 Key 图片）/ image / video",
         },
+        ...OUTPUT_OPTION_PROPS,
       },
       required: ["topic"],
     },
@@ -174,9 +193,15 @@ const TOOLS = [
         projectId: { type: "string", description: "项目 ID（来自 list_projects / generate_script）" },
         autoFillStock: { type: "boolean", description: "合成前是否先自动从免费素材库配齐缺画面的分镜，默认 true" },
         footage: { type: "string", enum: FOOTAGE_KINDS, description: "自动配画面的类型，默认 auto" },
+        ...OUTPUT_OPTION_PROPS,
       },
       required: ["projectId"],
     },
+  },
+  {
+    name: "clipforge_list_voices",
+    description: "列出可用的免费 Edge TTS 中文音色（value/label/性别）及默认音色，供 create_video / compose 的 voice 参数选用。不需要 LLM。",
+    inputSchema: { type: "object", properties: {} },
   },
   {
     name: "clipforge_get_video",
@@ -212,12 +237,20 @@ async function handleCreateVideo(args) {
     method: "POST",
     body: { source: "all", mediaType, apiKeys: STOCK_KEYS },
   });
+  // 一个画面都没配到就别硬合成（会产出空白/失败片）——给可操作的提示
+  if (!fill.filled) {
+    return ok({
+      ok: false,
+      projectId,
+      footage: mediaType,
+      footageFilled: `0/${fill.total}`,
+      error:
+        "免费素材库没给这个主题配到任何画面，无法合成。换个更常见/更具体的主题，或为实例配 Pexels/Pixabay Key（CLIPFORGE_PEXELS_KEY）后重试。",
+    });
+  }
 
-  // 3) 合成（免费 Edge TTS 配音 + 字幕）
-  await api(`/api/project/${projectId}/compose`, {
-    method: "POST",
-    body: { freeTts: { enabled: true } },
-  });
+  // 3) 合成（免费 Edge TTS 配音 + 字幕；可选音色/画幅/画质）
+  await api(`/api/project/${projectId}/compose`, { method: "POST", body: composeBody(args) });
   const composition = await pollCompose(projectId);
 
   return ok({
@@ -226,6 +259,8 @@ async function handleCreateVideo(args) {
     topic,
     narrationStyle,
     footage: mediaType,
+    voice: composeBody(args).freeTts.voice || "zh-CN-XiaoxiaoNeural",
+    aspectRatio: ASPECT_RATIOS.includes(args.aspectRatio) ? args.aspectRatio : "9:16",
     shots: shots.length,
     footageFilled: `${fill.filled}/${fill.total}`,
     videoUrl: absVideoUrl(composition),
@@ -302,12 +337,14 @@ async function handleCompose(args) {
       body: { source: "all", mediaType: resolveMediaType(args.footage), apiKeys: STOCK_KEYS },
     }).catch(() => {}); // 配画面失败不阻断合成（可能已有素材）
   }
-  await api(`/api/project/${projectId}/compose`, {
-    method: "POST",
-    body: { freeTts: { enabled: true } },
-  });
+  await api(`/api/project/${projectId}/compose`, { method: "POST", body: composeBody(args) });
   const composition = await pollCompose(projectId);
   return ok({ ok: true, projectId, videoUrl: absVideoUrl(composition), status: composition.status });
+}
+
+async function handleListVoices() {
+  const res = await api("/api/tts/free");
+  return ok({ ok: true, default: res.default, voices: res.voices ?? [] });
 }
 
 async function handleGetVideo(args) {
@@ -326,6 +363,7 @@ const HANDLERS = {
   clipforge_search_stock: handleSearchStock,
   clipforge_list_projects: handleListProjects,
   clipforge_compose: handleCompose,
+  clipforge_list_voices: handleListVoices,
   clipforge_get_video: handleGetVideo,
 };
 

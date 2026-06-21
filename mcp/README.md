@@ -16,10 +16,14 @@ Drive ClipForge's text-to-video pipeline from any MCP client (Claude Desktop / C
 | `clipforge_search_stock` | 从免费可商用素材库检索画面（keyless Openverse 图片优先） | — |
 | `clipforge_list_projects` | 列出 ClipForge 里的项目 | — |
 | `clipforge_compose` | 为已有脚本+素材的项目合成出片（免费 Edge TTS） | — |
+| `clipforge_list_voices` | 列出可用的免费 Edge TTS 中文音色（供 voice 参数选用） | — |
 | `clipforge_get_video` | 查询某项目最新合成结果（状态/可下载地址），不重合成；用于轮询异步产物或取回旧视频 | — |
 
 > 素材（Openverse）与配音（微软 Edge TTS）全程 **免 Key**；只有「生成脚本」需要一个 OpenAI 兼容的 LLM Key。
 > Stock footage (Openverse) and voiceover (Edge TTS) are **key-less**; only script generation needs an OpenAI-compatible LLM key.
+
+> **成片选项**：`create_video` / `compose` 支持 `voice`（音色，见 `clipforge_list_voices`）、`aspectRatio`（`9:16` 竖屏默认 / `16:9` / `1:1`）、`quality`（`fast` / `standard` / `hd`）。一个画面都没配到时 `create_video` 会直接返回可操作的提示而非空白片。
+> **Output options**: `create_video` / `compose` accept `voice`, `aspectRatio` (`9:16` default / `16:9` / `1:1`) and `quality` (`fast`/`standard`/`hd`).
 
 > **视频 B-roll（可选）**：默认从 keyless Openverse 取**图片**配画面。若配了 `CLIPFORGE_PEXELS_KEY` / `CLIPFORGE_PIXABAY_KEY`，`create_video` 的 `footage:"auto"` 会自动改用**实拍视频** B-roll（也可显式传 `footage:"video"|"image"`）。
 > Optional **video B-roll**: defaults to keyless Openverse images. Set `CLIPFORGE_PEXELS_KEY` / `CLIPFORGE_PIXABAY_KEY` and `create_video` auto-switches to real video footage (or pass `footage:"video"`).
