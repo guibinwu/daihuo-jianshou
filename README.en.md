@@ -25,7 +25,7 @@
 
 > Two ways to create: **🛍️ Product → sales video** (main use case), or **🗣️ one-sentence → faceless topic video** for any non-commerce subject.
 
-<p align="center"><img src="docs/hero.png" alt="ClipForge pipeline: one sentence or a product photo → AI script → auto stock footage → free voiceover → subtitles → vertical video" width="820"/></p>
+<p align="center"><img src="docs/hero.png" alt="ClipForge — turn a product photo into a sales-driving short video for TikTok Shop / Douyin / Kuaishou / Xiaohongshu: AI selling points, product-fidelity, auto voiceover + subtitles, no watermark" width="820"/></p>
 
 > Self-hosted · No watermark · Bilingual UI (中文 / English, auto-detected from your system language) · FFmpeg-powered.
 
