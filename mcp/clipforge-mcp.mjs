@@ -47,6 +47,7 @@ function composeBody(args) {
   if (typeof args.voice === "string" && args.voice) body.freeTts.voice = args.voice;
   if (ASPECT_RATIOS.includes(args.aspectRatio)) body.aspectRatio = args.aspectRatio;
   if (QUALITY_PRESETS.includes(args.quality)) body.renderPreset = args.quality;
+  if (args.bgm === true) body.freeBgm = true; // 自动加一段免费 CC 背景音乐
   return body;
 }
 
@@ -55,6 +56,10 @@ const OUTPUT_OPTION_PROPS = {
   voice: { type: "string", description: "Edge TTS 音色 value（见 clipforge_list_voices），默认 zh-CN-XiaoxiaoNeural" },
   aspectRatio: { type: "string", enum: ASPECT_RATIOS, description: "画幅，默认 9:16 竖屏" },
   quality: { type: "string", enum: QUALITY_PRESETS, description: "画质预设 fast/standard/hd，默认 standard" },
+  bgm: {
+    type: "boolean",
+    description: "是否自动加一段免费 CC 背景音乐（Openverse keyless，混在旁白下方自动压低）。CC 音乐多需署名，默认 false",
+  },
 };
 
 /** 调用 ClipForge HTTP API；非 2xx 抛出携带后端 error 文案的异常 */

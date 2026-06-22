@@ -214,6 +214,26 @@ describe("Wikimedia 归一化", () => {
     expect(toWikimediaCandidate({ pageid: 1, title: "File:x" }, "image")).toBeNull();
   });
 
+  it("音频文件 → mediaType audio + 直链下载（免 Key 背景音乐源）", () => {
+    const page: CommonsPage = {
+      pageid: 7,
+      title: "File:Song.opus",
+      imageinfo: [
+        {
+          url: "https://upload.wikimedia.org/x/Song.opus",
+          mime: "audio/ogg",
+          duration: 60,
+          extmetadata: { LicenseShortName: { value: "CC BY 3.0" }, Artist: { value: "PeriTune" } },
+        },
+      ],
+    };
+    const c = toWikimediaCandidate(page, "audio")!;
+    expect(c.mediaType).toBe("audio");
+    expect(c.downloadUrl).toBe("https://upload.wikimedia.org/x/Song.opus"); // 直链，无转码
+    expect(c.author).toBe("PeriTune");
+    expect(c.durationSec).toBe(60);
+  });
+
   it("derivativeHeight：优先 height 字段，否则从 transcodekey 解析", () => {
     expect(derivativeHeight({ height: 480 })).toBe(480);
     expect(derivativeHeight({ transcodekey: "480p.vp9.webm" })).toBe(480);

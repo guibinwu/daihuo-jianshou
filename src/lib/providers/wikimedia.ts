@@ -83,7 +83,9 @@ export function toWikimediaCandidate(page: CommonsPage, requested: StockMediaTyp
   if (!ii?.url) return null;
   const ext = ii.extmetadata ?? {};
   const license = stripHtml(ext.LicenseShortName?.value) || "Unknown";
-  const isVideo = requested === "video" || /^video\//.test(ii.mime ?? "");
+  const mime = ii.mime ?? "";
+  const isAudio = requested === "audio" || /^audio\//.test(mime);
+  const isVideo = !isAudio && (requested === "video" || /^video\//.test(mime));
   const downloadUrl = isVideo ? pickWikimediaVideoSrc(ii.derivatives, ii.url) : ii.url;
   // 视频但没有 ≤720p webm 转码（回退到原始 .ogv 等）→ 跳过：体积大、FFmpeg/浏览器播放不友好，
   // 且静态文件路由不识别其 MIME（octet-stream 不可播）。让该分镜改由其它源/图片兜底。
@@ -91,7 +93,7 @@ export function toWikimediaCandidate(page: CommonsPage, requested: StockMediaTyp
   const commonsPageUrl = `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`;
   return {
     source: "wikimedia",
-    mediaType: isVideo ? "video" : "image",
+    mediaType: isAudio ? "audio" : isVideo ? "video" : "image",
     id: page.pageid,
     downloadUrl,
     pageUrl: commonsPageUrl,
@@ -118,11 +120,13 @@ async function searchWikimedia(
   if (!query?.trim()) throw new Error("检索词为空");
   const { perPage = 10 } = opts;
   const isVideo = mediaType === "video";
+  const filetype =
+    mediaType === "video" ? "filetype:video" : mediaType === "audio" ? "filetype:audio" : "filetype:bitmap";
   const params = new URLSearchParams({
     action: "query",
     format: "json",
     generator: "search",
-    gsrsearch: `${query.trim()} ${isVideo ? "filetype:video" : "filetype:bitmap"}`,
+    gsrsearch: `${query.trim()} ${filetype}`,
     gsrnamespace: "6",
     gsrlimit: String(perPage),
   });
@@ -159,4 +163,9 @@ export function searchWikimediaImages(query: string, opts: { perPage?: number } 
 /** 检索 Commons 视频（取 ≤720p webm 转码，免 Key 的实拍 B-roll） */
 export function searchWikimediaVideos(query: string, opts: { perPage?: number } = {}): Promise<StockCandidate[]> {
   return searchWikimedia(query, "video", opts);
+}
+
+/** 检索 Commons 音频（CC/PD，直链可下，免 Key 背景音乐来源） */
+export function searchWikimediaAudio(query: string, opts: { perPage?: number } = {}): Promise<StockCandidate[]> {
+  return searchWikimedia(query, "audio", opts);
 }

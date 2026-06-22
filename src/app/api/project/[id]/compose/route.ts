@@ -12,6 +12,7 @@ import { scripts as scriptsTable, assets as assetsTable, projects, compositions 
 import { eq } from "drizzle-orm";
 import { composeVideo, FADE_DURATION, type ClipInput, type ComposeConfig } from "@/lib/video-composer/composer";
 import { isAudibleFromVolumedetect } from "@/lib/video-composer/audio-probe";
+import { fetchFreeBgm } from "@/lib/free-bgm";
 import type { Shot } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
 
@@ -265,8 +266,16 @@ export async function POST(
       }
     });
 
-    // 背景音乐（可选）：本地路径转绝对路径，合成时混入并自动压低
-    const bgmLocal = body.bgmPath ? toLocalPath(body.bgmPath) : undefined;
+    // 背景音乐（可选）：① 用户上传的 bgmPath；② freeBgm=true 时自动取一条免费 CC 音乐。合成时混入并自动压低。
+    let bgmLocal = body.bgmPath ? toLocalPath(body.bgmPath) : undefined;
+    if (!bgmLocal && body.freeBgm === true) {
+      const free = await fetchFreeBgm(id);
+      if (free) {
+        bgmLocal = free.localPath;
+        // CC 音乐多需署名：记录来源，便于导出 credits / 用户在成片署名（CC BY 等）
+        console.info(`[bgm] 免费配乐: ${free.author} · ${free.license} · ${free.sourceUrl}`);
+      }
+    }
 
     const config: ComposeConfig = {
       projectId: id,

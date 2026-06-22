@@ -22,8 +22,8 @@ Drive ClipForge's text-to-video pipeline from any MCP client (Claude Desktop / C
 > 素材（Openverse）与配音（微软 Edge TTS）全程 **免 Key**；只有「生成脚本」需要一个 OpenAI 兼容的 LLM Key。
 > Stock footage (Openverse) and voiceover (Edge TTS) are **key-less**; only script generation needs an OpenAI-compatible LLM key.
 
-> **成片选项**：`create_video` / `compose` 支持 `voice`（音色，见 `clipforge_list_voices`）、`aspectRatio`（`9:16` 竖屏默认 / `16:9` / `1:1`）、`quality`（`fast` / `standard` / `hd`）。一个画面都没配到时 `create_video` 会直接返回可操作的提示而非空白片。
-> **Output options**: `create_video` / `compose` accept `voice`, `aspectRatio` (`9:16` default / `16:9` / `1:1`) and `quality` (`fast`/`standard`/`hd`).
+> **成片选项**：`create_video` / `compose` 支持 `voice`（音色，见 `clipforge_list_voices`）、`aspectRatio`（`9:16` 竖屏默认 / `16:9` / `1:1`）、`quality`（`fast` / `standard` / `hd`）、`bgm`（`true` 自动加一段免费 CC 背景音乐，混在旁白下方自动压低；来源 Wikimedia Commons，CC 多需署名）。一个画面都没配到时 `create_video` 会直接返回可操作的提示而非空白片。
+> **Output options**: `create_video` / `compose` accept `voice`, `aspectRatio` (`9:16` default / `16:9` / `1:1`), `quality` (`fast`/`standard`/`hd`) and `bgm` (`true` = add free CC background music, ducked under the voiceover).
 
 > **视频 B-roll**：默认 `footage:"auto"` 现在**逐镜视频优先、配不到再退图片**——**全程免 Key** 就能拿到实拍动态 B-roll（Wikimedia Commons 提供 CC/公共领域视频，取 ≤720p webm 转码）。想更快可传 `footage:"image"`（只图片）；`footage:"video"` 只视频。配了 `CLIPFORGE_PEXELS_KEY` / `CLIPFORGE_PIXABAY_KEY` 则再补充 Pexels/Pixabay 高质量视频。
 > **Video B-roll**: `footage:"auto"` (default) now picks **video first, falling back to image per shot** — real motion B-roll with **no key at all** (Wikimedia Commons). Pass `footage:"image"` for the fastest path; add `CLIPFORGE_PEXELS_KEY` / `CLIPFORGE_PIXABAY_KEY` for extra Pexels/Pixabay footage.
