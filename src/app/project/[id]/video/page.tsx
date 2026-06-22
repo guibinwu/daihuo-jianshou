@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useT } from "@/lib/i18n";
 import { RENDER_PRESETS, DEFAULT_RENDER_PRESET, type RenderPreset } from "@/lib/compose-presets";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -44,6 +45,11 @@ interface ComposeConfig {
   resolution: "720p" | "1080p";
   /** 渲染质量预设：快速/标准/高清（决定分辨率 + 编码速度/质量） */
   renderPreset: RenderPreset;
+  /** 合规：烧 AI 生成标识（TikTok/抖音要求） */
+  aiDisclosure: boolean;
+  /** 带货：片尾购买 CTA 贴片 */
+  ctaEnabled: boolean;
+  ctaText: string;
 }
 
 // 免费配音音色（微软 Edge keyless TTS，无需 Key）——与后端 FREE_TTS_VOICES 对应
@@ -121,6 +127,9 @@ export default function VideoPage() {
     aspectRatio: "9:16",
     resolution: "1080p",
     renderPreset: DEFAULT_RENDER_PRESET,
+    aiDisclosure: false,
+    ctaEnabled: false,
+    ctaText: "👇 点击下方小黄车下单",
   });
 
   // 合成状态
@@ -266,6 +275,8 @@ export default function VideoPage() {
           resolution: config.resolution,
           renderPreset: config.renderPreset,
           aspectRatio: config.aspectRatio,
+          ...(config.aiDisclosure && { aiDisclosure: true }),
+          ...(config.ctaEnabled && config.ctaText.trim() && { ctaText: config.ctaText.trim() }),
           ...(bgm?.path && { bgmPath: bgm.path }),
           // 开启配音时：已配付费 TTS 走付费；否则走免费 Edge keyless TTS（无需 Key），合成为每镜生成口播音轨
           ...(config.ttsEnabled && paidTtsReady && {
@@ -554,6 +565,39 @@ export default function VideoPage() {
                     </button>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* 合规与转化：AI 生成标识 + 购买 CTA 片尾 */}
+            <Card className="glass-card">
+              <CardContent className="p-4 space-y-3">
+                <Label className="text-sm font-medium">{t("complianceLabel")}</Label>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{t("aiDisclosureLabel")}</span>
+                  <button
+                    onClick={() => setConfig((c) => ({ ...c, aiDisclosure: !c.aiDisclosure }))}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${config.aiDisclosure ? "bg-primary" : "bg-muted"}`}
+                  >
+                    <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${config.aiDisclosure ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{t("ctaLabel")}</span>
+                  <button
+                    onClick={() => setConfig((c) => ({ ...c, ctaEnabled: !c.ctaEnabled }))}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${config.ctaEnabled ? "bg-primary" : "bg-muted"}`}
+                  >
+                    <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${config.ctaEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
+                {config.ctaEnabled && (
+                  <Input
+                    value={config.ctaText}
+                    onChange={(e) => setConfig((c) => ({ ...c, ctaText: e.target.value }))}
+                    placeholder={t("ctaPlaceholder")}
+                    className="bg-muted/30 border-border/50 text-xs"
+                  />
+                )}
               </CardContent>
             </Card>
 
