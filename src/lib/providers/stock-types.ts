@@ -73,9 +73,9 @@ export const STOCK_SOURCES: StockSourceMeta[] = [
     id: "wikimedia",
     label: "Wikimedia Commons",
     keyless: true,
-    mediaTypes: ["image", "video"],
+    mediaTypes: ["image", "video", "audio"],
     signupUrl: "https://commons.wikimedia.org/",
-    note: "免 Key，CC/公共领域图片+视频；目前唯一免 Key 的视频源（无需 Pexels/Pixabay Key 也能配实拍 B-roll）",
+    note: "免 Key，CC/公共领域图片+视频+音频；唯一免 Key 视频源（实拍 B-roll）+ 免费 BGM 来源，直链可下",
   },
   {
     id: "pexels",

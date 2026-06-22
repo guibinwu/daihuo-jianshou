@@ -303,6 +303,7 @@ describe("多源注册表", () => {
     const wm = STOCK_SOURCES.find((s) => s.id === "wikimedia")!;
     expect(wm.keyless).toBe(true); // 免 Key
     expect(wm.mediaTypes).toContain("video"); // 唯一免 Key 视频源
+    expect(wm.mediaTypes).toContain("audio"); // 免 Key BGM 来源
   });
 
   it("wikimedia 无 key 也可用(keyless)", () => {
