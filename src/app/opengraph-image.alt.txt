@@ -1,1 +1,1 @@
-ClipForge — open-source AI short-video generator: turn one sentence or a product photo into a vertical video for TikTok, Reels and Shorts.
+ClipForge — open-source AI e-commerce short-video generator: turn a product photo into a sales-driving video for TikTok Shop / Douyin / Kuaishou / Xiaohongshu. AI selling points, product-fidelity, auto voiceover & subtitles, no watermark.
