@@ -313,7 +313,11 @@ export async function POST(
     if (body.productCard === true) {
       const cardImg = toLocalPath(productImages[0]);
       if (cardImg) {
-        config.productCard = { imagePath: cardImg, name: (project.productName as string) || project.name || undefined };
+        config.productCard = {
+          imagePath: cardImg,
+          name: (project.productName as string) || project.name || undefined,
+          price: (project.productPrice as string) || undefined,
+        };
       }
     }
 

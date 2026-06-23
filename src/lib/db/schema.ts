@@ -12,6 +12,7 @@ export const projects = sqliteTable("projects", {
   productName: text("product_name"),
   productCategory: text("product_category"),
   productDescription: text("product_description"),
+  productPrice: text("product_price"), // 商品价格文案（如「¥39.9」「£63.00」，主要来自链接 ingest，用于商品卡贴片）
   productImages: text("product_images", { mode: "json" }).$type<string[]>().default([]),
   productAnalysis: text("product_analysis"), // LLM 视觉分析结果
   productId: text("product_id"), // 关联商品库（可选，也可直接填写）

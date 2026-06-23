@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       contentType: "product",
       productName: name,
       productDescription: product.description ?? null,
+      productPrice: product.priceText ?? null,
       productImages: [],
     })
     .returning();

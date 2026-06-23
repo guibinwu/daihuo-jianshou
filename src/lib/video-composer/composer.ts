@@ -163,10 +163,11 @@ export interface ComposeConfig {
     startTime: number;
     endTime: number;
   }[];
-  /** 带货商品卡贴片（opt-in）：左下角商品图缩略 + 商品名，开头若干秒展示，营造「挂车」感 */
+  /** 带货商品卡贴片（opt-in）：左下角商品图缩略 + 商品名 + 价格，开头若干秒展示，营造「挂车」感 */
   productCard?: {
     imagePath: string; // 商品图本地路径
     name?: string;
+    price?: string; // 价格文案，如「¥39.9」
   };
 }
 
@@ -398,15 +399,15 @@ export function buildComposeCommand(config: ComposeConfig): string {
     filterParts.push(`[${cardIdx}:v]scale=${thumb}:${thumb}:force_original_aspect_ratio=increase,crop=${thumb}:${thumb},setsar=1[pcard]`);
     filterParts.push(`[${currentVideoStream}][pcard]overlay=${mx}:${cardY}:${en}[pcard_v]`);
     currentVideoStream = "pcard_v";
-    // 3) 商品名 + 黄色购买引导（缩略图右侧）
+    // 3) 商品名（白）+ 价格（红，醒目）+ 黄色购买引导，缩略图右侧三行
     if (nm) {
-      const nameSize = Math.round(width * 0.04);
-      const ctaSize = Math.round(width * 0.03);
       const tx = mx + thumb + pad;
-      filterParts.push(
-        `[${currentVideoStream}]drawtext=${cardFontArg}expansion=none:text='${escapeDrawText(nm)}':fontsize=${nameSize}:fontcolor=white:x=${tx}:y=${cardY + Math.round(thumb * 0.2)}:${en},` +
-          `drawtext=${cardFontArg}expansion=none:text='点击下方购买 →':fontsize=${ctaSize}:fontcolor=0xffd60a:x=${tx}:y=${cardY + Math.round(thumb * 0.58)}:${en}[pcard_out]`
-      );
+      const price = (config.productCard.price || "").trim().slice(0, 12);
+      const draws: string[] = [];
+      draws.push(`drawtext=${cardFontArg}expansion=none:text='${escapeDrawText(nm)}':fontsize=${Math.round(width * 0.036)}:fontcolor=white:x=${tx}:y=${cardY + Math.round(thumb * 0.12)}:${en}`);
+      if (price) draws.push(`drawtext=${cardFontArg}expansion=none:text='${escapeDrawText(price)}':fontsize=${Math.round(width * 0.05)}:fontcolor=0xff3b30:x=${tx}:y=${cardY + Math.round(thumb * 0.4)}:${en}`);
+      draws.push(`drawtext=${cardFontArg}expansion=none:text='点击下方购买 →':fontsize=${Math.round(width * 0.028)}:fontcolor=0xffd60a:x=${tx}:y=${cardY + Math.round(thumb * 0.72)}:${en}`);
+      filterParts.push(`[${currentVideoStream}]${draws.join(",")}[pcard_out]`);
       currentVideoStream = "pcard_out";
     }
   }

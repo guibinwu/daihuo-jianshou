@@ -264,13 +264,14 @@ describe("buildComposeCommand", () => {
   it("商品卡贴片（opt-in）：叠加商品图缩略 + 商品名", () => {
     const config: ComposeConfig = {
       ...baseConfig,
-      productCard: { imagePath: "/data/prod.jpg", name: "云柔抽纸" },
+      productCard: { imagePath: "/data/prod.jpg", name: "云柔抽纸", price: "¥39.9" },
     };
     const cmd = buildComposeCommand(config);
     expect(cmd).toContain("/data/prod.jpg"); // 商品图作为输入
     expect(cmd).toContain("[pcard]"); // 缩略图缩放流
     expect(cmd).toContain("overlay="); // 叠加
     expect(cmd).toContain("云柔抽纸"); // 商品名 drawtext
+    expect(cmd).toContain("¥39.9"); // 价格 drawtext
     // 不传 productCard 时不应出现
     expect(buildComposeCommand(baseConfig)).not.toContain("[pcard]");
   });
