@@ -301,13 +301,14 @@ export function buildComposeCommand(config: ComposeConfig): string {
     const vol = config.output.bgmVolume ?? 0.3;
 
     if (currentAudioStream) {
-      // 有片段音频：BGM 和片段音频混合，片段音频优先（BGM 自动压低）
-      filterParts.push(`[${bgmIndex}:a]volume=${vol}[bgm_vol]`);
-      filterParts.push(`[${currentAudioStream}][bgm_vol]amix=inputs=2:duration=first:dropout_transition=2[audio_final]`);
+      // 有片段音频：BGM 循环铺满全片（aloop，避免 BGM 短于视频时尾部没声），压低音量后与旁白混音。
+      // amix 必须 normalize=0：默认 normalize=1 会把每路按 1/inputs 缩放，等于把旁白音量腰斩到 ~50%（带货旁白要听清）。
+      filterParts.push(`[${bgmIndex}:a]aloop=loop=-1:size=2e9,volume=${vol}[bgm_vol]`);
+      filterParts.push(`[${currentAudioStream}][bgm_vol]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[audio_final]`);
       currentAudioStream = "audio_final";
     } else {
-      // 无片段音频：只有 BGM
-      filterParts.push(`[${bgmIndex}:a]volume=${vol}[audio_final]`);
+      // 无片段音频：只有 BGM，同样循环铺满（由输出 -t 截到视频时长）
+      filterParts.push(`[${bgmIndex}:a]aloop=loop=-1:size=2e9,volume=${vol}[audio_final]`);
       currentAudioStream = "audio_final";
     }
   }

@@ -137,19 +137,23 @@ describe("buildComposeCommand", () => {
     expect(cmd).toContain("-loop 1 -t 3");
   });
 
-  it("有 BGM 时正确混音", () => {
+  it("有 BGM + 旁白时正确混音（normalize=0 不腰斩旁白、aloop 铺满）", () => {
     const config: ComposeConfig = {
       ...baseConfig,
-      output: {
-        ...baseConfig.output,
-        bgmPath: "/data/bgm.mp3",
-        bgmVolume: 0.5,
-      },
+      // 带 audioPath 触发旁白音轨，走 amix（旁白+BGM）路径
+      clips: [
+        { type: "image", filePath: "/data/img1.jpg", duration: 3, transition: "direct_concat", motion: "static", audioPath: "/data/tts1.mp3" },
+        { type: "video", filePath: "/data/clip2.mp4", duration: 5, transition: "ffmpeg_fade" },
+      ],
+      output: { ...baseConfig.output, bgmPath: "/data/bgm.mp3", bgmVolume: 0.5 },
     };
     const cmd = buildComposeCommand(config);
     expect(cmd).toContain("/data/bgm.mp3");
     expect(cmd).toContain("volume=0.5");
     expect(cmd).toContain("audio_final");
+    expect(cmd).toContain("amix=inputs=2");
+    expect(cmd).toContain("normalize=0"); // 不把旁白腰斩到 ~50%
+    expect(cmd).toContain("aloop=loop=-1"); // BGM 循环铺满全片
   });
 
   it("有音频片段时正确提取音轨", () => {
