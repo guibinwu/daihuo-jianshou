@@ -77,6 +77,7 @@ export const exportPage: NamespaceMessages = {
     platformDouyin: "抖音",
     platformKuaishou: "快手",
     platformXiaohongshu: "小红书",
+    platformTiktok: "TikTok Shop",
   },
   en: {
     projectFallback: "Commerce project",
@@ -140,5 +141,6 @@ export const exportPage: NamespaceMessages = {
     platformDouyin: "Douyin",
     platformKuaishou: "Kuaishou",
     platformXiaohongshu: "Xiaohongshu",
+    platformTiktok: "TikTok Shop",
   },
 };

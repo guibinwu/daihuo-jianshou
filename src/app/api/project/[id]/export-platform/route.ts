@@ -8,15 +8,12 @@ import { promisify } from "util";
 import { getDb } from "@/lib/db";
 import { compositions } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { PLATFORM_SPECS } from "@/lib/platform-specs";
 
 const execAsync = promisify(exec);
 
-// 各平台目标尺寸（带货主流竖屏/3:4）
-const PLATFORM_SIZE: Record<string, { w: number; h: number; name: string }> = {
-  douyin: { w: 1080, h: 1920, name: "抖音" },
-  kuaishou: { w: 1080, h: 1920, name: "快手" },
-  xiaohongshu: { w: 1080, h: 1440, name: "小红书" },
-};
+// 各平台目标尺寸（单一事实来源见 platform-specs.ts，含 TikTok Shop）
+const PLATFORM_SIZE = PLATFORM_SPECS;
 
 /**
  * 把成片重编码到指定平台比例。
