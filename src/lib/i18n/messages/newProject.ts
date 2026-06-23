@@ -85,6 +85,7 @@ export const newProject: NamespaceMessages = {
     platformDouyin: "抖音",
     platformKuaishou: "快手",
     platformXiaohongshu: "小红书",
+    platformTiktok: "TikTok Shop",
     usageLabel: "用法与优势",
     usagePlaceholder: "描述产品的使用方法、独特优势、和竞品的差异化等...",
     // 视频配置
@@ -204,6 +205,7 @@ export const newProject: NamespaceMessages = {
     platformDouyin: "Douyin",
     platformKuaishou: "Kuaishou",
     platformXiaohongshu: "Xiaohongshu",
+    platformTiktok: "TikTok Shop",
     usageLabel: "Usage & advantages",
     usagePlaceholder: "Describe how to use the product, its unique advantages, how it differs from competitors...",
     // 视频配置

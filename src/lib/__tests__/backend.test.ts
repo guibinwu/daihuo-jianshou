@@ -41,6 +41,16 @@ describe("buildUserPrompt", () => {
     expect(prompt).toContain("美妆护肤");
   });
 
+  it("平台=tiktok 注入 TikTok Shop 官方结构指令（三段式 + 四范式）", () => {
+    const prompt = buildUserPrompt({ ...baseInput, platforms: "tiktok" });
+    expect(prompt).toContain("TikTok Shop");
+    expect(prompt).toContain("三段式");
+    expect(prompt).toContain("四范式");
+    expect(prompt).toContain("橱窗");
+    // 非 tiktok 平台不应混入 TikTok Shop 的四范式块
+    expect(buildUserPrompt({ ...baseInput, platforms: "douyin" })).not.toContain("四范式");
+  });
+
   it("包含视频模式指令", () => {
     const input: ScriptGenerationInput = {
       ...baseInput,

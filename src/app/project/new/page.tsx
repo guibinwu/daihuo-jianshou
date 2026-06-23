@@ -685,6 +685,7 @@ export default function NewProjectPage() {
                     { value: "douyin", labelKey: "platformDouyin" },
                     { value: "kuaishou", labelKey: "platformKuaishou" },
                     { value: "xiaohongshu", labelKey: "platformXiaohongshu" },
+                    { value: "tiktok", labelKey: "platformTiktok" },
                   ].map((opt) => (
                     <button
                       key={opt.value}
