@@ -251,6 +251,19 @@ describe("buildComposeCommand", () => {
     expect(cmd).toContain("\\$");
   });
 
+  it("成片写入 AIGC 隐式标识元数据（GB 45438），位置正确且不污染 filter_complex", () => {
+    const cmd = buildComposeCommand(baseConfig);
+    expect(cmd).toContain("-metadata comment=");
+    expect(cmd).toContain("AIGC=1");
+    expect(cmd).toContain("ClipForge");
+    expect(cmd).toContain(baseConfig.projectId); // 内容制作编号=projectId
+    // -metadata 在 -movflags 之后、且在最终输出文件之前
+    expect(cmd.indexOf("-metadata")).toBeGreaterThan(cmd.indexOf("-movflags"));
+    expect(cmd.lastIndexOf("-metadata")).toBeLessThan(cmd.lastIndexOf(".mp4"));
+    // filter_complex 仍完整（未被元数据污染）
+    expect(cmd).toContain("-filter_complex");
+  });
+
   it("xfade 转场正确设置 offset", () => {
     const cmd = buildComposeCommand(baseConfig);
     // ffmpeg_fade 转场应包含 xfade

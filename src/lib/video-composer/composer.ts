@@ -6,6 +6,7 @@ import { existsSync } from "fs";
 import { TRANSITIONS, type TransitionMode } from "./transitions";
 import { MOTIONS, DEFAULT_MOTION } from "./motions";
 import { safeEncodeParams } from "@/lib/compose-presets";
+import { buildAigcMetadataArgs } from "@/lib/compliance-metadata";
 
 /**
  * 探测一个可用的中文字体文件路径
@@ -383,8 +384,11 @@ export function buildComposeCommand(config: ComposeConfig): string {
   // 渲染质量预设：分辨率在上方已按 preset 决定，这里用 preset 的编码速度/质量（白名单兜底防注入）
   const enc = safeEncodeParams(config.output.videoPreset, config.output.crf);
   cmd += ` -c:v libx264 -preset ${enc.videoPreset} -crf ${enc.crf} -profile:v high -level:v 4.2 -pix_fmt yuv420p`;
+  // AIGC 隐式标识（GB 45438-2025）：把「生成合成标签+服务提供者+内容制作编号」写进文件元数据，与画面显式标识互补。
+  // 纯 -metadata，不影响 filter_complex；内容编号用 projectId 派生（确定性、可 ffprobe 断言）。
+  const aigcArgs = buildAigcMetadataArgs({ contentId: config.projectId });
   // 显式限定输出时长为视频真实时间轴(accumulated)：xfade 重叠后视频比朴素累计短，避免尾部音频盖在冻结帧上
-  cmd += ` -c:a aac -b:a 256k -movflags +faststart -t ${accumulated.toFixed(3)} "${escapeShellPath(outputPath)}"`;
+  cmd += ` -c:a aac -b:a 256k -movflags +faststart ${aigcArgs} -t ${accumulated.toFixed(3)} "${escapeShellPath(outputPath)}"`;
 
   return cmd;
 }
