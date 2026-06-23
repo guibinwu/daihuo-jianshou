@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSettingsStore } from "@/lib/stores/settings-store";
+import { buildPublishPack } from "@/lib/publish-pack";
 import { useT } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
@@ -54,7 +55,7 @@ export default function ExportPage() {
   // 发布文案
   const { llm } = useSettingsStore();
   const [productMeta, setProductMeta] = useState<{ productName: string; category: string; description: string } | null>(null);
-  const [publish, setPublish] = useState<{ loading: boolean; titles: string[]; hashtags: string[]; caption: string; error?: string }>({ loading: false, titles: [], hashtags: [], caption: "" });
+  const [publish, setPublish] = useState<{ loading: boolean; titles: string[]; hashtags: string[]; caption: string; error?: string; template?: boolean }>({ loading: false, titles: [], hashtags: [], caption: "" });
 
   const showToast = (message: string) => {
     setToast(message);
@@ -66,8 +67,17 @@ export default function ExportPage() {
   };
 
   const generatePublish = async () => {
-    if (!llm.apiKey) { setPublish((p) => ({ ...p, error: t("publishNoLlm") })); return; }
-    setPublish((p) => ({ ...p, loading: true, error: undefined }));
+    // 未配置 LLM：用免 Key 模板版文案包兜底，依旧能「复制即发」（配了 LLM 则走下方 AI 路径拿更优文案）
+    if (!llm.apiKey) {
+      const pack = buildPublishPack({
+        productName: productMeta?.productName || projectName,
+        category: productMeta?.category,
+        sellingPoints: productMeta?.description,
+      });
+      setPublish({ loading: false, titles: pack.titles, hashtags: pack.hashtags, caption: pack.caption, template: true });
+      return;
+    }
+    setPublish((p) => ({ ...p, loading: true, error: undefined, template: false }));
     try {
       const res = await fetch("/api/llm/publish", {
         method: "POST",
@@ -361,6 +371,9 @@ export default function ExportPage() {
             )}
             {publish.titles.length > 0 && (
               <div className="space-y-3">
+                {publish.template && (
+                  <p className="text-[11px] text-muted-foreground">{t("publishTemplateNote")}</p>
+                )}
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5">{t("publishTitlesLabel")}</p>
                   <div className="space-y-1.5">
