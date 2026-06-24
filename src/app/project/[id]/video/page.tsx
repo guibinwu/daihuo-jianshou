@@ -135,7 +135,7 @@ export default function VideoPage() {
     renderPreset: DEFAULT_RENDER_PRESET,
     aiDisclosure: false,
     ctaEnabled: false,
-    ctaText: "👇 点击下方小黄车下单",
+    ctaText: "", // 默认空，开启时按当前语言用 ctaPlaceholder 预填（避免英文用户拿到中文默认 CTA）
     productCard: false,
     karaoke: false,
     bgmDuck: false,
@@ -621,7 +621,13 @@ export default function VideoPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{t("ctaLabel")}</span>
                   <button
-                    onClick={() => setConfig((c) => ({ ...c, ctaEnabled: !c.ctaEnabled }))}
+                    onClick={() =>
+                      setConfig((c) => {
+                        const enabling = !c.ctaEnabled;
+                        // 开启且文案为空时，用当前语言的 placeholder 预填，保留一键便利又随语言走
+                        return { ...c, ctaEnabled: enabling, ctaText: enabling && !c.ctaText.trim() ? t("ctaPlaceholder") : c.ctaText };
+                      })
+                    }
                     className={`relative w-10 h-5 rounded-full transition-colors ${config.ctaEnabled ? "bg-primary" : "bg-muted"}`}
                   >
                     <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${config.ctaEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
