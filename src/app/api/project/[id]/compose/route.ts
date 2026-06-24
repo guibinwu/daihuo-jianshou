@@ -316,7 +316,7 @@ export async function POST(
       clips,
       output: {
         ...outputCfg,
-        ...(bgmLocal && { bgmPath: bgmLocal, bgmVolume: 0.18 }),
+        ...(bgmLocal && { bgmPath: bgmLocal, bgmVolume: 0.18, bgmDuck: body.bgmDuck === true }),
       },
       subtitle: subtitleTexts.length > 0 ? { texts: subtitleTexts, position: "bottom" } : undefined,
       overlays: overlays.length > 0 ? overlays : undefined,

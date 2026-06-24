@@ -161,6 +161,8 @@ export interface ComposeConfig {
     bgmFadeOutSec?: number;
     /** BGM 跳过前奏秒数（opt-in，默认 0）：跳过开头空白/前奏；设过大且 BGM 短会被清空，故默认 0 */
     bgmIntroSkipSec?: number;
+    /** 旁白闪避（opt-in，默认 false）：sidechaincompress 让旁白一响就压低 BGM、停顿回升，旁白更清晰 */
+    bgmDuck?: boolean;
     /** x264 编码 preset（渲染质量预设映射，缺省 medium）；只接受白名单值 */
     videoPreset?: string;
     /** x264 -crf 质量（缺省 18）；会被夹取到合法范围 */
@@ -342,7 +344,15 @@ export function buildComposeCommand(config: ComposeConfig): string {
       // 有片段音频：BGM 循环铺满全片（aloop，避免 BGM 短于视频时尾部没声），压低音量 + 结尾淡出后与旁白混音。
       // amix 必须 normalize=0：默认 normalize=1 会把每路按 1/inputs 缩放，等于把旁白音量腰斩到 ~50%（带货旁白要听清）。
       filterParts.push(`[${bgmIndex}:a]${introArg}aloop=loop=-1:size=2e9,volume=${vol}${fadeArg}[bgm_vol]`);
-      filterParts.push(`[${currentAudioStream}][bgm_vol]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[audio_final]`);
+      if (config.output.bgmDuck) {
+        // 旁白闪避（sidechaincompress）：旁白一响 BGM 自动压低、停顿时回升 → 旁白更清晰、间隙更饱满。
+        // 旁白既作混音输入又作 sidechain 触发键，故 asplit 复制一份。opt-in，默认不开（零默认影响）。
+        filterParts.push(`[${currentAudioStream}]asplit=2[nar_mix][nar_key]`);
+        filterParts.push(`[bgm_vol][nar_key]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=400[bgm_duck]`);
+        filterParts.push(`[nar_mix][bgm_duck]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[audio_final]`);
+      } else {
+        filterParts.push(`[${currentAudioStream}][bgm_vol]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[audio_final]`);
+      }
       currentAudioStream = "audio_final";
     } else {
       // 无片段音频：只有 BGM，同样循环铺满 + 结尾淡出（由输出 -t 截到视频时长）

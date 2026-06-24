@@ -187,6 +187,27 @@ describe("buildComposeCommand", () => {
     expect(buildComposeCommand(config)).toContain("atrim=start=2");
   });
 
+  it("BGM 旁白闪避 opt-in（bgmDuck → sidechaincompress + asplit 复制旁白作 sidechain 键）", () => {
+    const config: ComposeConfig = {
+      ...baseConfig,
+      clips: [{ type: "image", filePath: "/data/img1.jpg", duration: 3, transition: "direct_concat", motion: "static", audioPath: "/data/tts1.mp3" }],
+      output: { ...baseConfig.output, bgmPath: "/data/bgm.mp3", bgmDuck: true },
+    };
+    const cmd = buildComposeCommand(config);
+    expect(cmd).toContain("sidechaincompress");
+    expect(cmd).toContain("asplit=2[nar_mix][nar_key]");
+    expect(cmd).toContain("normalize=0"); // 混音核心仍 normalize=0（不腰斩旁白）
+  });
+
+  it("默认不开旁白闪避（无 sidechaincompress）", () => {
+    const config: ComposeConfig = {
+      ...baseConfig,
+      clips: [{ type: "image", filePath: "/data/img1.jpg", duration: 3, transition: "direct_concat", motion: "static", audioPath: "/data/tts1.mp3" }],
+      output: { ...baseConfig.output, bgmPath: "/data/bgm.mp3" },
+    };
+    expect(buildComposeCommand(config)).not.toContain("sidechaincompress");
+  });
+
   it("bgmFadeOutSec=0 时不加结尾淡出", () => {
     const config: ComposeConfig = {
       ...baseConfig,
