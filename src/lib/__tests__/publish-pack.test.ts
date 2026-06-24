@@ -44,6 +44,15 @@ describe("buildPublishPack（免 Key 发布文案包）", () => {
     expect(p.caption.length).toBeGreaterThan(0);
   });
 
+  it("长商品名+卖点不裁断挂车号召（CTA 尾巴保留）", () => {
+    const p = buildPublishPack({
+      productName: "这是一个名字特别特别长的商品超出限制了",
+      category: "beauty",
+      sellingPoints: "卖点也写得非常非常非常长超出限制了哦哦哦",
+    });
+    expect(p.caption).toContain("小黄车带走它～"); // 行动号召不被整体裁掉
+  });
+
   it("确定性：同输入同输出", () => {
     const a = buildPublishPack({ productName: "耳机", category: "digital", platform: "kuaishou" });
     const b = buildPublishPack({ productName: "耳机", category: "digital", platform: "kuaishou" });

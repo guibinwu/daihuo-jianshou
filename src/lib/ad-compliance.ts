@@ -66,7 +66,10 @@ export function checkAdCompliance(text: string): AdViolation[] {
       }
     }
   }
-  return out.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "high" ? -1 : 1));
+  // 去掉被更长命中词包含的短词（如「100%」被「100%天然」覆盖），避免同一处文字重复且矛盾的提示
+  const terms = out.map((v) => v.term);
+  const deduped = out.filter((v) => !terms.some((t) => t !== v.term && t.includes(v.term)));
+  return deduped.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "high" ? -1 : 1));
 }
 
 /** 扫描整条脚本的所有分镜（旁白 + 文字贴片），汇总去重后的风险词。 */

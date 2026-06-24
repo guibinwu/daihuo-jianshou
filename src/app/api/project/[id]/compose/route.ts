@@ -16,22 +16,30 @@ import { isAudibleFromVolumedetect } from "@/lib/video-composer/audio-probe";
 import { buildComplianceOverlays } from "@/lib/compliance-overlays";
 import { fetchFreeBgm, moodQueryForCategory, moodQueryForMood } from "@/lib/free-bgm";
 import type { Shot } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, and } from "drizzle-orm";
 
 // 获取该项目最新一条合成记录（导出页读取真实成片）
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
     const db = getDb();
-    const rows = await db
-      .select()
-      .from(compositions)
-      .where(eq(compositions.projectId, id))
-      .orderBy(desc(compositions.createdAt))
-      .limit(1);
+    // 可选 ?compositionId：精确取某一次合成（A/B 多变体顺序重渲时按 id 轮询，避免 GET 返回 latest 的竞态串号）
+    const compositionId = req.nextUrl.searchParams.get("compositionId");
+    const rows = compositionId
+      ? await db
+          .select()
+          .from(compositions)
+          .where(and(eq(compositions.projectId, id), eq(compositions.id, compositionId)))
+          .limit(1)
+      : await db
+          .select()
+          .from(compositions)
+          .where(eq(compositions.projectId, id))
+          .orderBy(desc(compositions.createdAt))
+          .limit(1);
     if (rows.length === 0) {
       return NextResponse.json({ composition: null });
     }

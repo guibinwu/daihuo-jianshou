@@ -28,6 +28,12 @@ describe("checkAdCompliance（广告法风险词扫描）", () => {
     expect(v[0].severity).toBe("high"); // high 排前
   });
 
+  it("重叠风险词只报更长的那个（100%天然 不再额外报 100%）", () => {
+    const terms = checkAdCompliance("100%天然成分").map((x) => x.term);
+    expect(terms).toContain("100%天然");
+    expect(terms).not.toContain("100%"); // 被更长词覆盖，不重复矛盾提示
+  });
+
   it("合规文案无命中（无误报）", () => {
     expect(checkAdCompliance("这款抽纸柔软亲肤，囤货很划算，回购率高")).toEqual([]);
   });

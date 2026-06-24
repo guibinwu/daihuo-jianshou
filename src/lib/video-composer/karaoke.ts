@@ -117,8 +117,8 @@ function buildKaraokeLineText(text: string, durationSec: number, cfg: LineCfg): 
   let used = 0;
   return units
     .map((u, i) => {
-      // 末单位吃掉余数，保证 \k 之和恰为 totalCs
-      const k = i === units.length - 1 ? totalCs - used : Math.max(1, Math.round((lens[i] / sumLen) * totalCs));
+      // 末单位吃余数；但单位数 > 总厘秒数(极短时长+长旁白)时余数会为负，下限钳到 1 防止 \k 负值乱序
+      const k = i === units.length - 1 ? Math.max(1, totalCs - used) : Math.max(1, Math.round((lens[i] / sumLen) * totalCs));
       used += k;
       const emph = cfg.emphasize && /\d/.test(u); // 含数字 → 价格/折扣/数量，强调
       const fs = emph ? Math.round(cfg.baseFs * cfg.emphScale) : cfg.baseFs;

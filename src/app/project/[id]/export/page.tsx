@@ -95,10 +95,12 @@ export default function ExportPage() {
           }),
         });
         if (!res.ok) throw new Error("compose failed");
+        // 按本次合成的 compositionId 精确轮询（避免 GET latest 在同秒多变体间串号成同一文件）
+        const { compositionId } = await res.json();
         const url = await new Promise<string>((resolve, reject) => {
           const poll = setInterval(async () => {
             try {
-              const r = await fetch(`/api/project/${id}/compose`);
+              const r = await fetch(`/api/project/${id}/compose?compositionId=${compositionId}`);
               const d = await r.json();
               const c = d.composition;
               if (c?.status === "done" && c.url) { clearInterval(poll); resolve(c.url); }

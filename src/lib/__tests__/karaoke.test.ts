@@ -83,6 +83,15 @@ describe("buildKaraokeAss", () => {
     expect(d).not.toContain("&H0050FF&"); // 无强调色
   });
 
+  it("单位数 > 总厘秒数（极短时长+长旁白）不产生负 \\k", () => {
+    const d = buildKaraokeAss([{ text: "买它现在马上下单抢购吧", startTime: 0, endTime: 0.05 }])
+      .split("\n")
+      .find((l) => l.startsWith("Dialogue:"))!;
+    const ks = [...d.matchAll(/\\k(-?\d+)/g)].map((m) => Number(m[1]));
+    expect(ks.length).toBeGreaterThan(0);
+    expect(ks.every((k) => k >= 1)).toBe(true); // 无负 \k
+  });
+
   it("过滤非法行（endTime<=startTime / 空文本）", () => {
     const ass = buildKaraokeAss([
       { text: "好物", startTime: 0, endTime: 2 },

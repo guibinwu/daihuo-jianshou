@@ -76,8 +76,10 @@ export function buildPublishPack(input: PublishPackInput): PublishPack {
     if (hashtags.length >= 10) break;
   }
 
-  // 种草文案：口语化 + 行动号召（挂车）
-  const caption = clip(`${name}真的绝了${point ? "，" + point : ""}，点下方小黄车带走它～`, 40);
+  // 种草文案：口语化 + 行动号召（挂车）。先裁前半句，再固定拼挂车号召，保证 CTA 尾巴不被整体裁断
+  const cta = "，点下方小黄车带走它～";
+  const lead = `${name}真的绝了${point ? "，" + point : ""}`;
+  const caption = clip(lead, 40 - Array.from(cta).length) + cta;
 
   return { titles, hashtags, caption };
 }
