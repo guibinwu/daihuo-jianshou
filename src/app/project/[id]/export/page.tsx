@@ -20,6 +20,12 @@ const platformConfigs = [
   { id: "tiktok", nameKey: "platformTiktok", ratio: "9:16", resolution: "1080p", subtitle: "居中+描边", color: "from-slate-700 to-slate-900" },
 ];
 
+// A/B 变体预设：用现有参数（字幕风格 + 配乐情绪）各重渲一条，便于投放对比哪个转化高（全程免 Key）
+const AB_PRESETS: { key: string; labelKey: string; compose: Record<string, unknown> }[] = [
+  { key: "karaoke", labelKey: "abVariantKaraoke", compose: { karaoke: true, bgmMood: "upbeat" } },
+  { key: "rapid", labelKey: "abVariantRapid", compose: { bgmMood: "energetic" } },
+];
+
 // 脚本风格 → i18n key（在渲染时取译文）
 const styleLabelKeys: Record<string, string> = {
   pain_point: "stylePainPoint",
@@ -57,6 +63,9 @@ export default function ExportPage() {
   const { llm } = useSettingsStore();
   const [productMeta, setProductMeta] = useState<{ productName: string; category: string; description: string } | null>(null);
   const [publish, setPublish] = useState<{ loading: boolean; titles: string[]; hashtags: string[]; caption: string; error?: string; template?: boolean }>({ loading: false, titles: [], hashtags: [], caption: "" });
+  // A/B 变体生成（重渲不同字幕风格+配乐各一条，供投放对比）
+  const [abVariants, setAbVariants] = useState<{ key: string; labelKey: string; status: "running" | "done" | "error"; url?: string }[]>([]);
+  const [abRunning, setAbRunning] = useState(false);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -65,6 +74,45 @@ export default function ExportPage() {
 
   const copyText = async (text: string) => {
     try { await navigator.clipboard.writeText(text); showToast(t("copied")); } catch { showToast(t("copyFailed")); }
+  };
+
+  // 顺序重渲每个 A/B 变体（不同字幕风格+配乐），完成一条出一条下载链接；全程免 Key
+  const generateAbVariants = async () => {
+    if (abRunning) return;
+    setAbRunning(true);
+    setAbVariants(AB_PRESETS.map((p) => ({ key: p.key, labelKey: p.labelKey, status: "running" as const })));
+    for (const p of AB_PRESETS) {
+      try {
+        const res = await fetch(`/api/project/${id}/compose`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resolution: composition?.resolution === "720p" ? "720p" : "1080p",
+            aspectRatio: composition?.aspectRatio || "9:16",
+            freeTts: { enabled: true },
+            freeBgm: true,
+            ...p.compose,
+          }),
+        });
+        if (!res.ok) throw new Error("compose failed");
+        const url = await new Promise<string>((resolve, reject) => {
+          const poll = setInterval(async () => {
+            try {
+              const r = await fetch(`/api/project/${id}/compose`);
+              const d = await r.json();
+              const c = d.composition;
+              if (c?.status === "done" && c.url) { clearInterval(poll); resolve(c.url); }
+              else if (c?.status === "failed") { clearInterval(poll); reject(new Error("failed")); }
+            } catch { /* 单次轮询失败忽略 */ }
+          }, 3000);
+          setTimeout(() => { clearInterval(poll); reject(new Error("timeout")); }, 300000);
+        });
+        setAbVariants((prev) => prev.map((x) => (x.key === p.key ? { ...x, status: "done", url } : x)));
+      } catch {
+        setAbVariants((prev) => prev.map((x) => (x.key === p.key ? { ...x, status: "error" } : x)));
+      }
+    }
+    setAbRunning(false);
   };
 
   const generatePublish = async () => {
@@ -460,7 +508,7 @@ export default function ExportPage() {
           </CardContent>
         </Card>
 
-        {/* A/B 测试版本（规划中） */}
+        {/* A/B 变体：换字幕风格+配乐各重渲一条，投放对比哪个转化高 */}
         <Card className="glass-card mb-6">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
@@ -468,9 +516,27 @@ export default function ExportPage() {
                 <LuShuffle className="w-4 h-4 text-primary" />
                 <h3 className="text-sm font-semibold">{t("abTitle")}</h3>
               </div>
-              <Badge variant="secondary" className="text-xs">{t("abBadge")}</Badge>
+              <Button size="sm" variant="outline" className="text-xs" disabled={abRunning || !composition?.url} onClick={generateAbVariants}>
+                {abRunning ? t("abRunning") : t("abGenerate")}
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground">{t("abDesc")}</p>
+            <p className="text-xs text-muted-foreground mb-3">{t("abDesc")}</p>
+            {abVariants.length > 0 && (
+              <div className="space-y-2">
+                {abVariants.map((v) => (
+                  <div key={v.key} className="flex items-center justify-between rounded-md border border-border/40 bg-muted/10 px-3 py-2">
+                    <span className="text-xs">{t(v.labelKey)}</span>
+                    {v.status === "running" && <LuLoaderCircle className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+                    {v.status === "done" && v.url && (
+                      <a href={`${v.url}?download=1`} download>
+                        <Button size="sm" variant="outline" className="text-xs h-7">{t("abDownload")}</Button>
+                      </a>
+                    )}
+                    {v.status === "error" && <span className="text-xs text-destructive">{t("abFailed")}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
