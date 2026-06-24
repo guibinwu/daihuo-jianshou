@@ -587,7 +587,7 @@ export default function SettingsPage() {
                             disabled={!provider.apiKey || providerTest[platform.key]?.state === "testing"}
                             onClick={() => testProvider(platform.key)}
                           >
-                            {providerTest[platform.key]?.state === "testing" ? "测试中…" : "测试连接"}
+                            {providerTest[platform.key]?.state === "testing" ? t("llmTestTesting") : t("llmTestButton")}
                           </Button>
                           {(() => {
                             const r = providerTest[platform.key];
@@ -1004,7 +1004,7 @@ export default function SettingsPage() {
                         <SelectContent>
                           {imageModelOptions.map((m) => (
                             <SelectItem key={m.id} value={m.id}>
-                              {m.name}{m.custom ? " ·自定义" : ""}
+                              {m.name}{m.custom ? t("customModelSuffix") : ""}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1033,7 +1033,7 @@ export default function SettingsPage() {
                         <SelectContent>
                           {videoModelOptions.map((m) => (
                             <SelectItem key={m.id} value={m.id}>
-                              {m.name}{m.custom ? " ·自定义" : ""}
+                              {m.name}{m.custom ? t("customModelSuffix") : ""}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1046,7 +1046,7 @@ export default function SettingsPage() {
               {/* 自定义模型接入点 + 生成参数（高级，默认折叠，不打扰新手） */}
               <details className="group rounded-xl border border-border/50 bg-card/30">
                 <summary className="flex items-center justify-between cursor-pointer list-none select-none px-5 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-                  <span>高级 · 自定义模型接入点 / 生成参数</span>
+                  <span>{t("advancedSection")}</span>
                   <svg className="size-4 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
                 </summary>
                 <div className="px-1 pb-1 space-y-4">

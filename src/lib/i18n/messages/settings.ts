@@ -63,6 +63,8 @@ export const settings: NamespaceMessages = {
     llmTestSuccess: "连接成功 ✓",
     llmTestError: "连接失败 ✗",
     llmTestButton: "测试连接",
+    customModelSuffix: " ·自定义",
+    advancedSection: "高级 · 自定义模型接入点 / 生成参数",
     llmFillKeyFirst: "请先填写 API Key",
     connectFailed: "连接失败",
     llmTestTip:
@@ -219,6 +221,8 @@ export const settings: NamespaceMessages = {
     llmTestSuccess: "Connected ✓",
     llmTestError: "Connection failed ✗",
     llmTestButton: "Test connection",
+    customModelSuffix: " ·Custom",
+    advancedSection: "Advanced · Custom model endpoint / generation params",
     llmFillKeyFirst: "Enter an API key first",
     connectFailed: "Connection failed",
     llmTestTip:
