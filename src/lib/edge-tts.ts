@@ -17,13 +17,28 @@ const SEC_MS_GEC_VERSION = process.env.EDGE_TTS_VERSION || "1-143.0.3650.75";
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0";
 
-/** 精选中文音色（短名 + 中文标签），默认用温柔女声小晓 */
-export const FREE_TTS_VOICES: { value: string; label: string; gender: "female" | "male" }[] = [
-  { value: "zh-CN-XiaoxiaoNeural", label: "晓晓 · 温柔女声", gender: "female" },
-  { value: "zh-CN-XiaoyiNeural", label: "晓伊 · 活泼女声", gender: "female" },
-  { value: "zh-CN-YunxiNeural", label: "云希 · 阳光男声", gender: "male" },
-  { value: "zh-CN-YunyangNeural", label: "云扬 · 专业播报男声", gender: "male" },
-  { value: "zh-CN-YunjianNeural", label: "云健 · 沉稳解说男声", gender: "male" },
+/**
+ * 精选免费音色（短名 + 标签 + 语言），默认温柔女声小晓。
+ * 全球化定位：英文/日/韩/西脚本需对应语言原生发音，不能用中文音色读外文（发音错乱）。
+ * 这些都是 Edge keyless 真实可合成的音色（已 server 实测出 18~26KB mp3）；generateSpeechFree
+ * 本就接受任意 Edge 音色名，此处只是把非中文音色「列出来」让全球用户/agent 能发现选用。
+ */
+export const FREE_TTS_VOICES: { value: string; label: string; gender: "female" | "male"; lang: string }[] = [
+  // 中文（默认市场）
+  { value: "zh-CN-XiaoxiaoNeural", label: "晓晓 · 温柔女声", gender: "female", lang: "zh-CN" },
+  { value: "zh-CN-XiaoyiNeural", label: "晓伊 · 活泼女声", gender: "female", lang: "zh-CN" },
+  { value: "zh-CN-YunxiNeural", label: "云希 · 阳光男声", gender: "male", lang: "zh-CN" },
+  { value: "zh-CN-YunyangNeural", label: "云扬 · 专业播报男声", gender: "male", lang: "zh-CN" },
+  { value: "zh-CN-YunjianNeural", label: "云健 · 沉稳解说男声", gender: "male", lang: "zh-CN" },
+  // English（出海主力）
+  { value: "en-US-AriaNeural", label: "Aria · US English (female)", gender: "female", lang: "en-US" },
+  { value: "en-US-GuyNeural", label: "Guy · US English (male)", gender: "male", lang: "en-US" },
+  { value: "en-GB-SoniaNeural", label: "Sonia · UK English (female)", gender: "female", lang: "en-GB" },
+  // 亚洲出海市场
+  { value: "ja-JP-NanamiNeural", label: "Nanami · 日本語 (female)", gender: "female", lang: "ja-JP" },
+  { value: "ko-KR-SunHiNeural", label: "SunHi · 한국어 (female)", gender: "female", lang: "ko-KR" },
+  // 西语市场
+  { value: "es-ES-ElviraNeural", label: "Elvira · Español (female)", gender: "female", lang: "es-ES" },
 ];
 
 export const DEFAULT_FREE_VOICE = "zh-CN-XiaoxiaoNeural";
