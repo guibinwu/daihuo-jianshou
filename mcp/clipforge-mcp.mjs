@@ -262,7 +262,7 @@ const TOOLS = [
   },
   {
     name: "clipforge_list_voices",
-    description: "列出可用的免费 Edge TTS 中文音色（value/label/性别）及默认音色，供 create_video / compose 的 voice 参数选用。不需要 LLM。",
+    description: "列出可用的免费 Edge TTS 多语言音色（中/英/日/韩/西，含 value/label/gender/lang）及默认音色，供 create_video / compose 的 voice 参数选用。不需要 LLM。",
     inputSchema: { type: "object", properties: {} },
   },
   {
