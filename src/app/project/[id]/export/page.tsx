@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSettingsStore } from "@/lib/stores/settings-store";
 import { buildPublishPack } from "@/lib/publish-pack";
-import { useT } from "@/lib/i18n";
+import { useT, useLocale } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 
 // 平台导出配置（规划中功能，展示用）。name 用 i18n key（nameKey）在渲染时取译文
@@ -52,6 +52,7 @@ interface ScriptInfo {
 
 export default function ExportPage() {
   const t = useT("exportPage");
+  const locale = useLocale();
   const { id } = useParams<{ id: string }>();
   const [toast, setToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,6 +125,7 @@ export default function ExportPage() {
         productName: productMeta?.productName || projectName,
         category: productMeta?.category,
         sellingPoints: productMeta?.description,
+        locale: locale === "en" ? "en" : "zh", // 跟随界面语言：英文用户拿英文发布文案
       });
       setPublish({ loading: false, titles: pack.titles, hashtags: pack.hashtags, caption: pack.caption, template: true });
       return;

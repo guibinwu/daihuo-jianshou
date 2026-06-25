@@ -15,6 +15,7 @@ export interface PublishPackInput {
   category?: string; // beauty/food/home/fashion/digital/other
   sellingPoints?: string; // 卖点/描述，可多句
   platform?: string; // douyin/kuaishou/xiaohongshu/tiktok
+  locale?: "zh" | "en"; // 文案语言，默认 zh；en 出海用英文标题/话题/CTA（避免英文用户拿到中文文案）
 }
 
 // 品类热门话题（贴合抖音/快手/小红书带货语境）
@@ -27,6 +28,16 @@ const CATEGORY_TAGS: Record<string, string[]> = {
   other: ["好物推荐", "种草", "好物分享", "值得买", "宝藏好物", "日常分享"],
 };
 
+// 品类热门话题（英文 TikTok/Reels 带货语境）
+const CATEGORY_TAGS_EN: Record<string, string[]> = {
+  beauty: ["BeautyTok", "SkincareRoutine", "MakeupHacks", "BeautyFinds", "GlowUp", "TikTokMadeMeBuyIt"],
+  food: ["FoodTok", "FoodieFinds", "SnackHaul", "TikTokFood", "MustTry", "TikTokMadeMeBuyIt"],
+  home: ["HomeFinds", "HomeHacks", "CleanTok", "OrganizationTips", "CozyHome", "TikTokMadeMeBuyIt"],
+  fashion: ["OOTD", "FashionTok", "StyleInspo", "OutfitIdeas", "FashionFinds", "TikTokMadeMeBuyIt"],
+  digital: ["TechTok", "GadgetFinds", "TechReview", "CoolGadgets", "Innovation", "TikTokMadeMeBuyIt"],
+  other: ["TikTokMadeMeBuyIt", "MustHave", "ProductReview", "WorthIt", "TikTokFinds", "DailyFinds"],
+};
+
 // 平台热门话题
 const PLATFORM_TAGS: Record<string, string[]> = {
   douyin: ["抖音好物", "抖音电商"],
@@ -35,11 +46,11 @@ const PLATFORM_TAGS: Record<string, string[]> = {
   tiktok: ["TikTokMadeMeBuyIt", "TikTokShop"],
 };
 
-/** 取第一条卖点：按中英标点/换行切，去空白，限长 */
-function firstSellingPoint(sp?: string): string {
+/** 取第一条卖点：按中英标点/换行切，去空白，限长（英文卖点更长，故 max 可调） */
+function firstSellingPoint(sp: string | undefined, max: number): string {
   if (!sp) return "";
   const first = sp.split(/[。.,，;；\n、]/).map((s) => s.trim()).find((s) => s.length > 0) || "";
-  return clip(first, 12);
+  return clip(first, max);
 }
 
 /** 按显示宽度近似裁剪（CJK 记 1，避免标题过长） */
@@ -49,21 +60,29 @@ function clip(s: string, max: number): string {
 }
 
 export function buildPublishPack(input: PublishPackInput): PublishPack {
-  const name = clip((input.productName || "").trim() || "这款好物", 16);
+  const en = input.locale === "en";
+  const name = clip((input.productName || "").trim() || (en ? "this find" : "这款好物"), en ? 40 : 16);
   const cat = (input.category || "other").toLowerCase();
-  const point = firstSellingPoint(input.sellingPoints);
+  const point = firstSellingPoint(input.sellingPoints, en ? 40 : 12);
 
-  // 标题：情绪 + 卖点/数字钩子，三条不同角度
-  const titles = [
-    clip(`${name}也太好用了吧！后悔没早买`, 22),
-    clip(point ? `${name}｜${point}，谁用谁回购` : `${name}，闭眼入不踩雷`, 22),
-    clip(`三个理由让你入手${name}`, 22),
-  ];
+  // 标题：情绪 + 卖点/数字钩子，三条不同角度（英文不强裁，CJK 限 22）
+  const titles = en
+    ? [
+        `This ${name} is a total game-changer 🤯`,
+        point ? `${name} — ${point}, you'll want one` : `${name} you won't regret buying`,
+        `3 reasons to grab the ${name}`,
+      ]
+    : [
+        clip(`${name}也太好用了吧！后悔没早买`, 22),
+        clip(point ? `${name}｜${point}，谁用谁回购` : `${name}，闭眼入不踩雷`, 22),
+        clip(`三个理由让你入手${name}`, 22),
+      ];
 
   // 话题：品类 + 平台，去重、带 #、控制在 ~10 个内
   const platform = (input.platform || "").toLowerCase();
+  const catTags = en ? CATEGORY_TAGS_EN : CATEGORY_TAGS;
   const tagWords = [
-    ...(CATEGORY_TAGS[cat] || CATEGORY_TAGS.other),
+    ...(catTags[cat] || catTags.other),
     ...(PLATFORM_TAGS[platform] || []),
   ];
   const seen = new Set<string>();
@@ -76,10 +95,13 @@ export function buildPublishPack(input: PublishPackInput): PublishPack {
     if (hashtags.length >= 10) break;
   }
 
-  // 种草文案：口语化 + 行动号召（挂车）。先裁前半句，再固定拼挂车号召，保证 CTA 尾巴不被整体裁断
-  const cta = "，点下方小黄车带走它～";
-  const lead = `${name}真的绝了${point ? "，" + point : ""}`;
-  const caption = clip(lead, 40 - Array.from(cta).length) + cta;
+  // 种草文案：口语化 + 行动号召。先裁前半句，再固定拼 CTA，保证 CTA 尾巴不被整体裁断
+  const cta = en ? " — tap the link below to grab it 🛒" : "，点下方小黄车带走它～";
+  const lead = en
+    ? `Obsessed with ${name}${point ? ", " + point : ""}`
+    : `${name}真的绝了${point ? "，" + point : ""}`;
+  const capMax = en ? 130 : 40;
+  const caption = clip(lead, capMax - Array.from(cta).length) + cta;
 
   return { titles, hashtags, caption };
 }

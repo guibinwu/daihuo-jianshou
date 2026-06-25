@@ -64,3 +64,30 @@ describe("buildPublishPack（免 Key 发布文案包）", () => {
     for (const t of p.titles) expect(Array.from(t).length).toBeLessThanOrEqual(22);
   });
 });
+
+describe("buildPublishPack 英文 locale（出海，避免英文用户拿到中文文案）", () => {
+  it("locale=en 产出英文标题/话题/CTA，正文无中文", () => {
+    const p = buildPublishPack({ productName: "Glow Serum", category: "beauty", platform: "tiktok", locale: "en" });
+    const all = p.titles.join(" ") + " " + p.hashtags.join(" ") + " " + p.caption;
+    expect(/[一-鿿]/.test(all)).toBe(false); // 无 CJK 泄漏
+    for (const t of p.titles) expect(t).toContain("Glow Serum");
+    expect(p.caption).toContain("Glow Serum");
+    expect(p.caption.toLowerCase()).toContain("tap the link below");
+  });
+
+  it("英文话题按品类映射（beauty→#BeautyTok）、带 #、去重", () => {
+    const p = buildPublishPack({ productName: "x", category: "beauty", locale: "en" });
+    expect(p.hashtags).toContain("#BeautyTok");
+    expect(p.hashtags.every((h) => h.startsWith("#"))).toBe(true);
+    expect(new Set(p.hashtags).size).toBe(p.hashtags.length);
+  });
+
+  it("英文卖点带进标题/文案", () => {
+    const p = buildPublishPack({ productName: "Magic Mop", category: "home", sellingPoints: "cleans in one swipe", locale: "en" });
+    expect(p.titles.join(" ") + p.caption).toContain("cleans in one swipe");
+  });
+
+  it("不传 locale 仍走中文（向后兼容）", () => {
+    expect(buildPublishPack({ productName: "抽纸", category: "home" }).caption).toContain("小黄车");
+  });
+});
