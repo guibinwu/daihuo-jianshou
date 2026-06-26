@@ -157,6 +157,18 @@ describe("buildComposeCommand", () => {
     expect(cmd).toContain("-loop 1 -t 3");
   });
 
+  it("字幕底距随商品卡自适应：无卡抬到 h*0.78（清出 2026 平台底部 UI 区）、有卡维持 h*0.83 紧贴卡下", () => {
+    const sub = { texts: [{ text: "测试字幕", startTime: 0, endTime: 3 }], position: "bottom" as const };
+    // 无商品卡 → 不被「卡上字下」堆叠约束，字幕底边抬到 h*0.78
+    const noCard = buildComposeCommand({ ...baseConfig, subtitle: sub });
+    expect(noCard).toContain("h*0.78-text_h");
+    expect(noCard).not.toContain("h*0.83-text_h");
+    // 有商品卡 → 被钉在 h*0.83（再高会顶到底距 0.25 的商品卡）
+    const withCard = buildComposeCommand({ ...baseConfig, subtitle: sub, productCard: { imagePath: "/data/prod.jpg", name: "测试", price: "¥9.9" } });
+    expect(withCard).toContain("h*0.83-text_h");
+    expect(withCard).not.toContain("h*0.78-text_h");
+  });
+
   it("图片片段精确补齐到 clip.duration（zoompan+tpad+trim 防累计漂移）", () => {
     const cmd = buildComposeCommand(baseConfig);
     // 图片段(img1, duration 3)：zoompan 运镜 + tpad 克隆末帧补足 + trim 到精确 3s
@@ -275,7 +287,7 @@ describe("buildComposeCommand", () => {
     expect(cmd).toContain("drawtext");
     expect(cmd).toContain("fontsize=40");
     expect(cmd).toContain("fontcolor=yellow");
-    expect(cmd).toContain("h*0.83-text_h"); // bottom 字幕抬到平台底部 UI 安全区之上（0.17 底距，按文字块底边向上生长）
+    expect(cmd).toContain("h*0.78-text_h"); // 此 config 无商品卡 → 字幕抬到 0.22 底距(h*0.78)更清出 2026 平台底部 UI 区，按文字块底边向上生长
     expect(cmd).toContain("line_spacing="); // 多行行距
     expect(cmd).toContain("box=1:boxcolor=black@0.45"); // 字幕底框
   });

@@ -7,7 +7,7 @@ import { TRANSITIONS, type TransitionMode } from "./transitions";
 import { MOTIONS, DEFAULT_MOTION } from "./motions";
 import { safeEncodeParams } from "@/lib/compose-presets";
 import { buildAigcMetadataArgs } from "@/lib/compliance-metadata";
-import { CAPTION_SAFE_BOTTOM_RATIO } from "./safe-zone";
+import { CAPTION_SAFE_BOTTOM_RATIO, CAPTION_SAFE_BOTTOM_RATIO_NOCARD } from "./safe-zone";
 
 /**
  * 探测一个可用的中文字体文件路径
@@ -380,8 +380,11 @@ export function buildComposeCommand(config: ComposeConfig): string {
     const fontColor = config.subtitle.color || "white";
     const borderW = config.subtitle.strokeWidth || 3;
     // 多行安全的纵向锚点：底部按文字块底边定位（向上生长，不会越过画面底边）；居中/顶部含 text_h
-    // bottom 字幕基线抬到平台底部 UI 安全区之上（与商品卡 0.17 底距对齐，避免被小黄车/进度条遮挡）
-    const bottomY = (1 - CAPTION_SAFE_BOTTOM_RATIO).toFixed(2); // 0.83
+    // bottom 字幕基线抬到平台底部 UI 安全区之上（避免被小黄车/进度条遮挡）。
+    // 有商品卡：被「卡上字下」堆叠钉在 0.17（再高两行字幕会顶到卡）；无卡：抬到 0.22 更清出 2026 UI 区。
+    const hasProductCard = !!config.productCard?.imagePath;
+    const bottomRatio = hasProductCard ? CAPTION_SAFE_BOTTOM_RATIO : CAPTION_SAFE_BOTTOM_RATIO_NOCARD;
+    const bottomY = (1 - bottomRatio).toFixed(2); // 有卡 0.83 / 无卡 0.78
     const yPos = config.subtitle.position === "top" ? "h*0.08" : config.subtitle.position === "center" ? "(h-text_h)/2" : `h*${bottomY}-text_h`;
     const lineSpacing = Math.round(fontSize * 0.28);
     // 半透明底框，提升可读性（带货短视频常见样式）

@@ -18,8 +18,16 @@
  * 纯函数，便于确定性单测（无需跑 ffmpeg）。
  */
 
-/** 底部安全留白比例：字幕底边距画面底 ≥ 该比例，避开平台底部 UI 区（被商品卡 0.25 堆叠钉在此上限） */
+/** 底部安全留白比例：字幕底边距画面底 ≥ 该比例，避开平台底部 UI 区（带货时被商品卡 0.25 堆叠钉在此上限） */
 export const CAPTION_SAFE_BOTTOM_RATIO = 0.17;
+
+/**
+ * 无商品卡时的字幕底部留白：纯主题视频/无卡带货没有「卡上字下」堆叠约束，
+ * 字幕可抬到更清出 2026 平台底部 UI 区(各家规范 ~20%~25%)的位置。
+ * 取 0.22：清出 20% 共识 UI 区且留余量、上移幅度温和；更严的字幕专项指南(避开底部 25%)
+ * 可到 0.25，这里权衡「清出 UI」与「别太侵入画面」取 0.22。带货有卡场景仍用 0.17（上方约束见该常量注释）。
+ */
+export const CAPTION_SAFE_BOTTOM_RATIO_NOCARD = 0.22;
 
 /** 卡拉OK ASS 的 MarginV（距底边像素，PlayRes 坐标系）：playResY × 安全比例 */
 export function karaokeSafeMarginV(playResY: number): number {
