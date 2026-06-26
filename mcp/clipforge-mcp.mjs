@@ -318,6 +318,8 @@ async function handleCreateVideo(args) {
     const v = defaultVoiceForTopic(topic);
     if (v) body.freeTts.voice = v;
   }
+  // 实际发给后端的音色（含上面的自动探测）；勿再调 composeBody(args)——那会得到没探测过的新 body、回报错音色
+  const usedVoice = body.freeTts.voice || "zh-CN-XiaoxiaoNeural";
   await api(`/api/project/${projectId}/compose`, { method: "POST", body });
   const composition = await pollCompose(projectId);
 
@@ -327,7 +329,7 @@ async function handleCreateVideo(args) {
     topic,
     narrationStyle,
     footage: mediaType,
-    voice: composeBody(args).freeTts.voice || "zh-CN-XiaoxiaoNeural",
+    voice: usedVoice,
     aspectRatio: ASPECT_RATIOS.includes(args.aspectRatio) ? args.aspectRatio : "9:16",
     shots: shots.length,
     footageFilled: `${fill.filled}/${fill.total}`,
@@ -405,9 +407,16 @@ async function handleCompose(args) {
       body: { source: "all", mediaType: resolveMediaType(args.footage), apiKeys: STOCK_KEYS },
     }).catch(() => {}); // 配画面失败不阻断合成（可能已有素材）
   }
-  await api(`/api/project/${projectId}/compose`, { method: "POST", body: composeBody(args) });
+  const body = composeBody(args);
+  // 未显式指定音色时，按项目主题语言挑默认音色（与 create_video 一致）——否则日/韩主题走 compose 会落中文默认音色读错音
+  if (!body.freeTts.voice) {
+    const proj = await api(`/api/project/${projectId}`).catch(() => null);
+    const v = proj && proj.topic ? defaultVoiceForTopic(String(proj.topic)) : null;
+    if (v) body.freeTts.voice = v;
+  }
+  await api(`/api/project/${projectId}/compose`, { method: "POST", body });
   const composition = await pollCompose(projectId);
-  return ok({ ok: true, projectId, videoUrl: absVideoUrl(composition), status: composition.status });
+  return ok({ ok: true, projectId, voice: body.freeTts.voice || "zh-CN-XiaoxiaoNeural", videoUrl: absVideoUrl(composition), status: composition.status });
 }
 
 async function handleListVoices() {
