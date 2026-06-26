@@ -229,6 +229,10 @@ export const FADE_DURATION = 0.5;
 
 // 生成 FFmpeg 合成命令
 export function buildComposeCommand(config: ComposeConfig): string {
+  // 空 clips 会让后续 -map "[v0]" 指向从未创建的流，ffmpeg 报晦涩错误；这里提前给出可读错误
+  if (!config.clips || config.clips.length === 0) {
+    throw new Error("没有可合成的片段（clips 为空）——请先为分镜配好画面素材再合成");
+  }
   const { width, height } = RESOLUTIONS[config.output.aspectRatio][config.output.resolution];
   const outputDir = join(getDataDir(), "output", config.projectId);
   const outputPath = join(outputDir, `final_${Date.now()}.mp4`);
@@ -303,8 +307,9 @@ export function buildComposeCommand(config: ComposeConfig): string {
       filterParts.push(
         `[${currentVideoStream}][v${i}]xfade=transition=fade:duration=${fadeDuration}:offset=${offset}[${nextStream}]`
       );
-      // xfade 会重叠 fadeDuration，故累计时长加上新片段后要减去重叠部分
-      accumulated = accumulated + clipDuration - fadeDuration;
+      // xfade 会重叠 fadeDuration，故累计时长加上新片段后要减去重叠部分。
+      // clamp ≥0：clip 短于 fadeDuration(0.5s) 时该步会让 accumulated 变负、连累后续 offset 与 BGM 淡出/总时长定时（此类极短片段本就退化，clamp 是兜底）
+      accumulated = Math.max(0, accumulated + clipDuration - fadeDuration);
     } else {
       // ai_start_end / ai_reference / direct_concat：直接拼接（不重叠）
       filterParts.push(`[${currentVideoStream}][v${i}]concat=n=2:v=1:a=0[${nextStream}]`);
@@ -392,7 +397,7 @@ export function buildComposeCommand(config: ComposeConfig): string {
 
     // 中文字幕必须显式指定中文字体文件，否则渲染为方块
     const fontFile = config.subtitle.fontFile ?? resolveChineseFontFile();
-    const fontFileArg = fontFile ? `fontfile='${escapeDrawText(fontFile)}':` : "";
+    const fontFileArg = fontFile ? `fontfile='${escapeSubtitlesPath(fontFile)}':` : "";
 
     const drawTexts = config.subtitle.texts
       .map((t) => {
@@ -409,7 +414,7 @@ export function buildComposeCommand(config: ComposeConfig): string {
   // 文字贴片：价格贴/卖点贴/标题贴（叠在画面上方，带货醒目样式）
   if (config.overlays?.length) {
     const ovFont = config.subtitle?.fontFile ?? resolveChineseFontFile();
-    const ovFontArg = ovFont ? `fontfile='${escapeDrawText(ovFont)}':` : "";
+    const ovFontArg = ovFont ? `fontfile='${escapeSubtitlesPath(ovFont)}':` : "";
     // 各样式：字号、字色、底框色、纵向位置（画面上方）
     const styleOf = (style: "title" | "highlight" | "price") => {
       if (style === "price")
@@ -447,7 +452,7 @@ export function buildComposeCommand(config: ComposeConfig): string {
     const end = Math.min(5, accumulated);
     const en = `enable='between(t,${start},${end})'`;
     const cardFont = config.subtitle?.fontFile ?? resolveChineseFontFile();
-    const cardFontArg = cardFont ? `fontfile='${escapeDrawText(cardFont)}':` : "";
+    const cardFontArg = cardFont ? `fontfile='${escapeSubtitlesPath(cardFont)}':` : "";
     // 1) 统一卡片底：半透明深色，把缩略图与文字裹成一张卡
     filterParts.push(`[${currentVideoStream}]drawbox=x=${mx - pad}:y=${cardY - pad}:w=${cardW + 2 * pad}:h=${thumb + 2 * pad}:color=black@0.5:t=fill:${en}[pcard_bg]`);
     currentVideoStream = "pcard_bg";

@@ -169,6 +169,18 @@ describe("buildComposeCommand", () => {
     expect(withCard).not.toContain("h*0.78-text_h");
   });
 
+  it("空 clips 抛可读错误（审计修复，否则 -map [v0] 指向不存在的流致 ffmpeg 晦涩失败）", () => {
+    expect(() => buildComposeCommand({ ...baseConfig, clips: [] })).toThrow(/clips 为空|没有可合成/);
+  });
+
+  it("字体路径用路径转义器（审计修复：Windows C:\\ 路径反斜杠→正斜杠+冒号转义，而非 drawtext 文本转义器毁掉路径）", () => {
+    const cmd = buildComposeCommand({
+      ...baseConfig,
+      subtitle: { texts: [{ text: "测试", startTime: 0, endTime: 3 }], fontFile: "C:\\fonts\\f.ttf", position: "bottom" },
+    });
+    expect(cmd).toContain("fontfile='C\\:/fonts/f.ttf'"); // escapeSubtitlesPath：\\→/ 且 :→\:
+  });
+
   it("图片片段精确补齐到 clip.duration（zoompan+tpad+trim 防累计漂移）", () => {
     const cmd = buildComposeCommand(baseConfig);
     // 图片段(img1, duration 3)：zoompan 运镜 + tpad 克隆末帧补足 + trim 到精确 3s
