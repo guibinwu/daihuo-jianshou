@@ -116,6 +116,10 @@ export class FalAIProvider extends BaseProvider {
       { method: 'POST', body }
     )
 
+    // 守卫：submit 偶发不返回 request_id，否则 taskId 变 "model::undefined"、parseTaskId 不报错、后续查询端点却 404
+    if (!submitResponse.request_id) {
+      throw new ProviderError('未返回请求ID', 'NO_REQUEST_ID', this.name)
+    }
     // getTaskStatus 需要 "modelId::requestId" 格式来定位查询端点，这里拼接好再轮询
     const taskId = `${options.modelId}::${submitResponse.request_id}`
     const finalStatus = await this.pollTaskStatus(taskId, {
@@ -173,6 +177,10 @@ export class FalAIProvider extends BaseProvider {
       { method: 'POST', body }
     )
 
+    // 守卫：submit 偶发不返回 request_id，否则 taskId 变 "model::undefined"、parseTaskId 不报错、后续查询端点却 404
+    if (!submitResponse.request_id) {
+      throw new ProviderError('未返回请求ID', 'NO_REQUEST_ID', this.name)
+    }
     // getTaskStatus 需要 "modelId::requestId" 格式来定位查询端点，这里拼接好再轮询
     const taskId = `${options.modelId}::${submitResponse.request_id}`
     const finalStatus = await this.pollTaskStatus(taskId, {

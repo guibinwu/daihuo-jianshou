@@ -94,6 +94,10 @@ export class SiliconFlowProvider extends BaseProvider {
       }
     )
 
+    // 守卫：API 偶发 200 但 images 缺失/为空（限流/错误体），直接 .map 会崩 TypeError，给出清晰 ProviderError
+    if (!Array.isArray(response.images) || response.images.length === 0) {
+      throw new ProviderError('未返回图片结果', 'NO_IMAGES', this.name)
+    }
     return {
       taskId: `sf-img-${Date.now()}`,
       imageUrls: response.images.map((img) => img.url),
@@ -128,6 +132,10 @@ export class SiliconFlowProvider extends BaseProvider {
       { method: 'POST', body }
     )
 
+    // 守卫：submit 偶发不返回 requestId，否则会拿 undefined 去轮询 /video/status/undefined、延迟到轮询超时才暴露
+    if (!response.requestId) {
+      throw new ProviderError('未返回任务ID', 'NO_REQUEST_ID', this.name)
+    }
     // 轮询等待结果
     const finalStatus = await this.pollTaskStatus(response.requestId, {
       interval: 5000,
@@ -161,6 +169,10 @@ export class SiliconFlowProvider extends BaseProvider {
 
     // 解析视频结果
     if (status === 'completed' && response.results) {
+      // 守卫：results 在但 videos 缺失/为空时 .map 会崩，挂死轮询；明确抛错
+      if (!Array.isArray(response.results.videos) || response.results.videos.length === 0) {
+        throw new ProviderError('任务完成但未返回视频', 'NO_VIDEOS', this.name)
+      }
       taskStatus.result = {
         taskId,
         videoUrls: response.results.videos.map((v) => v.url),

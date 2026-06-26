@@ -110,6 +110,10 @@ export class AlibabaProvider extends BaseProvider {
       }
     )
 
+    // 守卫：异步提交偶发 200 但 output/task_id 缺失，直接取 .task_id 会崩 TypeError
+    if (!response.output?.task_id) {
+      throw new ProviderError('未返回任务ID', 'NO_TASK_ID', this.name)
+    }
     const taskId = response.output.task_id
 
     // 轮询等待结果
@@ -177,6 +181,10 @@ export class AlibabaProvider extends BaseProvider {
       }
     )
 
+    // 守卫：异步提交偶发 200 但 output/task_id 缺失，直接取 .task_id 会崩 TypeError
+    if (!response.output?.task_id) {
+      throw new ProviderError('未返回任务ID', 'NO_TASK_ID', this.name)
+    }
     const taskId = response.output.task_id
 
     // 轮询等待结果（视频生成间隔较长）
