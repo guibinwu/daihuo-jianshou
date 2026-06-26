@@ -63,9 +63,11 @@ Using the sample "Soft Thick Facial Tissue":
 
 ## UI preview
 
-| Home · drop a photo, ship the video | New project · paste a URL or upload |
-|:---:|:---:|
-| ![Home](docs/screenshots/01-home.en.png) | ![New project](docs/screenshots/03-new.en.png) |
+| Home · one photo / one sentence | New project · paste a URL or upload | Script · 3 variants |
+|:---:|:---:|:---:|
+| ![Home](docs/screenshots/01-home.en.png) | ![New project](docs/screenshots/03-new.en.png) | ![Script](docs/screenshots/04-script.en.png) |
+| **Compose · voiceover/subtitles/BGM** | **Export · multi-platform** | **Batch production** |
+| ![Compose](docs/screenshots/04b-video.en.png) | ![Export](docs/screenshots/05-export.en.png) | ![Batch](docs/screenshots/06-batch.en.png) |
 
 <p align="center"><img src="docs/showcase-platforms.en.png" alt="ClipForge produces faceless vertical shopping videos for TikTok Shop, Reels, Shorts, Douyin, Kuaishou and Xiaohongshu — never showing a real face" width="820"/></p>
 
