@@ -588,6 +588,20 @@ describe("parseScriptResponse", () => {
     const scripts = parseScriptResponse(content, "pain_point");
     expect(scripts[0].totalDuration).toBe(8);
   });
+
+  it("scripts 数组含 null 元素时跳过、不崩（LLM 偶发 [null, {...}]，修复前 validateScript(null) 抛错连累整次解析）", () => {
+    const content = JSON.stringify({
+      scripts: [null, { title: "有效脚本", shots: [{ duration: 3, voiceover: "测试旁白" }] }],
+    });
+    const scripts = parseScriptResponse(content, "pain_point");
+    expect(scripts).toHaveLength(1);
+    expect(scripts[0].title).toBe("有效脚本");
+  });
+
+  it("截断的 JSON 报错带「截断」可操作提示（max_tokens 截断场景）", () => {
+    const truncated = '{"scripts": [{"title": "X", "shots": [';
+    expect(() => parseScriptResponse(truncated, "pain_point")).toThrow(/截断/);
+  });
 });
 
 describe("内置全 CJK 字幕字体", () => {

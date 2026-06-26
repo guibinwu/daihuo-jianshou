@@ -121,6 +121,14 @@ export function extractJSON(text: string): string {
 }
 
 /**
+ * 给「JSON 解析失败」的错误补一句可操作提示：以 {/[ 开头却未以 }/] 收尾，
+ * 多半是 max_tokens 截断了输出——提示增大 token 上限，而非干巴巴的「非法 JSON」。
+ */
+function truncationHint(jsonStr: string): string {
+  return /^[{[]/.test(jsonStr) && !/[}\]]\s*$/.test(jsonStr) ? "（输出疑似被截断，请增大 max_tokens 后重试）" : "";
+}
+
+/**
  * 验证并修正单个 Shot 数据
  * 确保所有必填字段都有合法值
  */
@@ -286,7 +294,7 @@ export async function generateSingleScript(input: ScriptInput): Promise<Generate
   try {
     parsed = JSON.parse(jsonStr);
   } catch {
-    throw new Error(`LLM 返回的内容不是合法 JSON: ${jsonStr.substring(0, 200)}`);
+    throw new Error(`LLM 返回的内容不是合法 JSON${truncationHint(jsonStr)}: ${jsonStr.substring(0, 200)}`);
   }
   return validateScript(parsed, input.styleType);
 }
@@ -442,7 +450,7 @@ export async function analyzeProductStructured(
   try {
     return JSON.parse(jsonStr) as ProductAnalysisResult;
   } catch {
-    throw new Error(`商品分析结果不是合法 JSON: ${jsonStr.substring(0, 200)}`);
+    throw new Error(`商品分析结果不是合法 JSON${truncationHint(jsonStr)}: ${jsonStr.substring(0, 200)}`);
   }
 }
 
@@ -459,7 +467,7 @@ export function parseScriptResponse(content: string, fallbackStyleType: string):
   try {
     parsed = JSON.parse(jsonStr);
   } catch {
-    throw new Error(`LLM 返回的内容不是合法 JSON: ${jsonStr.substring(0, 200)}`);
+    throw new Error(`LLM 返回的内容不是合法 JSON${truncationHint(jsonStr)}: ${jsonStr.substring(0, 200)}`);
   }
 
   // 处理不同的返回格式
@@ -480,7 +488,9 @@ export function parseScriptResponse(content: string, fallbackStyleType: string):
 
   // 丢弃没有任何分镜的脚本（LLM 偶尔返回只有 title、缺 shots 的残缺条目）；
   // 全部为空则抛错——否则会把「零分镜脚本」当成功落库，下游配画面/合成无米可炊却不报错。
+  // 先滤掉 null/非对象元素：LLM 偶尔产出 [null, {...}]，validateScript 首行读 raw.shots 会对 null 抛错、连累整次解析。
   const scripts = rawScripts
+    .filter((raw): raw is Record<string, unknown> => typeof raw === "object" && raw !== null)
     .map((raw) => validateScript(raw, fallbackStyleType))
     .filter((s) => s.shots.length > 0);
   if (scripts.length === 0) {
