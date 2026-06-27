@@ -238,6 +238,8 @@ export default function ScriptPage() {
   const { addTemplate } = useTemplateStore();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  // 重新生成会删库重建（route 先 delete 旧脚本），不可恢复——已有脚本时先二次确认，防误点丢稿
+  const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
   const [savedTip, setSavedTip] = useState(false);
 
   /** 点击"存为模板"按钮 */
@@ -285,14 +287,28 @@ export default function ScriptPage() {
     </header>
   );
 
-  // 加载中
+  // 加载中：骨架屏（模拟脚本卡片布局，比纯转圈更显「秒开」、降低等待焦虑）
   if (loading) {
     return (
       <div className="min-h-screen grid-bg">
         {headerBar}
-        <div className="flex flex-col items-center justify-center py-32 text-muted-foreground">
-          <LuLoaderCircle className="w-8 h-8 animate-spin mb-3" />
-          <p className="text-sm">{t("loadingScripts")}</p>
+        <div className="max-w-4xl mx-auto px-6 py-8 space-y-4" aria-busy="true" aria-label={t("loadingScripts")}>
+          {[0, 1, 2].map((i) => (
+            <Card key={i} className="glass-card animate-pulse">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="h-4 w-40 rounded bg-muted/60" />
+                  <div className="h-4 w-16 rounded bg-muted/40" />
+                </div>
+                <div className="h-2 w-full rounded bg-muted/40" />
+                <div className="flex gap-2">
+                  <div className="h-6 w-20 rounded bg-muted/40" />
+                  <div className="h-6 w-20 rounded bg-muted/40" />
+                  <div className="h-6 w-24 rounded bg-muted/30" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
@@ -391,7 +407,7 @@ export default function ScriptPage() {
                   <LuBookmarkPlus className="w-3.5 h-3.5 mr-1" />
                   {t("saveAsTemplate")}
                 </Button>
-                <Button variant="outline" size="sm" disabled={isGenerating} className="text-xs" onClick={handleGenerate}>
+                <Button variant="outline" size="sm" disabled={isGenerating} className="text-xs" onClick={() => setRegenConfirmOpen(true)}>
                   <LuWand className="w-3.5 h-3.5 mr-1" />
                   {t("regenerate")}
                 </Button>
@@ -575,6 +591,34 @@ export default function ScriptPage() {
               <div className="flex justify-end gap-2">
                 <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(false)}>{tc("cancel")}</Button>
                 <Button size="sm" className="brand-gradient text-white" onClick={doSaveTemplate} disabled={!templateName.trim()}>{tc("save")}</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 重新生成二次确认：删旧脚本不可逆，防误点 */}
+      {regenConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Card className="glass-card w-full max-w-md mx-4">
+            <CardContent className="p-6 space-y-4">
+              <h3 className="text-base font-semibold flex items-center gap-2">
+                <LuTriangleAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                {t("regenConfirmTitle")}
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">{t("regenConfirmDesc")}</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setRegenConfirmOpen(false)}>{t("regenConfirmCancel")}</Button>
+                <Button
+                  size="sm"
+                  className="brand-gradient text-white"
+                  onClick={() => {
+                    setRegenConfirmOpen(false);
+                    handleGenerate();
+                  }}
+                >
+                  {t("regenConfirmOk")}
+                </Button>
               </div>
             </CardContent>
           </Card>
