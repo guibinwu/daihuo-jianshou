@@ -49,12 +49,22 @@ jobs:
             release/*.exe
           fail_on_unmatched_files: false
           draft: true
+          # 双语发布说明（中文优先 + 英文），国际化友好；品牌统一为 ClipForge、数据目录与 build.productName 一致
           body: |
-            带货剪手桌面版 —— 双击即用，内置 ffmpeg / sqlite，无需安装 Node。
+            ClipForge 桌面版 —— 双击即用，内置 ffmpeg / sqlite，无需安装 Node。
 
             - **macOS (Apple Silicon)**：下载 `.dmg`。未签名，首次打开右键「打开」绕过 Gatekeeper。
             - **Windows (x64)**：下载 `.exe` 安装。⚠️ Windows 版为自动构建、未经实测，欢迎反馈。
 
-            首次启动后数据存于系统用户目录（macOS：`~/Library/Application Support/带货剪手`）。
+            首次启动后数据存于系统用户目录（macOS：`~/Library/Application Support/ClipForge`）。
+
+            ---
+
+            ClipForge Desktop — double-click to run. FFmpeg / SQLite bundled, no Node install required.
+
+            - **macOS (Apple Silicon)**: download the `.dmg`. Unsigned — on first launch, right-click → "Open" to bypass Gatekeeper.
+            - **Windows (x64)**: download the `.exe` installer. ⚠️ The Windows build is auto-generated and untested — feedback welcome.
+
+            On first launch, app data is stored under your user directory (macOS: `~/Library/Application Support/ClipForge`).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
