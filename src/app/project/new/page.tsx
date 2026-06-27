@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useT, useLocale } from "@/lib/i18n";
+import { friendlyError } from "@/lib/friendly-error";
 import { LanguageToggle } from "@/components/language-toggle";
 
 // 商品品类选项（label 改为 i18n key，渲染时经 t() 转换）
@@ -244,7 +245,7 @@ export default function NewProjectPage() {
       if (!res.ok || !data.projectId) throw new Error(data.error || t("ingestErrorFail"));
       router.push(`/project/${data.projectId}/script`);
     } catch (e) {
-      setIngestError(e instanceof Error ? e.message : t("ingestErrorFail"));
+      setIngestError(friendlyError(e, locale));
       setIngesting(false);
     }
   };

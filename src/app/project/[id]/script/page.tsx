@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import type { Shot } from "@/lib/db/schema";
 import { useTemplateStore } from "@/lib/stores/template-store";
 import { useSettingsStore } from "@/lib/stores/settings-store";
-import { useT } from "@/lib/i18n";
+import { useT, useLocale } from "@/lib/i18n";
+import { friendlyError } from "@/lib/friendly-error";
 import { LanguageToggle } from "@/components/language-toggle";
 
 // 镜头类型标签（label 改为词条 key，渲染时按语言取）
@@ -48,6 +49,7 @@ interface DbScript {
 export default function ScriptPage() {
   const t = useT("script");
   const tc = useT("common");
+  const locale = useLocale();
   const { id } = useParams<{ id: string }>();
   const [selectedScript, setSelectedScript] = useState(0);
   const [scripts, setScripts] = useState<
@@ -163,7 +165,7 @@ export default function ScriptPage() {
       }
       await loadScripts();
     } catch (err) {
-      setGenError(err instanceof Error ? err.message : t("errorGenFailed"));
+      setGenError(friendlyError(err, locale));
     } finally {
       setIsGenerating(false);
     }
