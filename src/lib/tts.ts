@@ -11,6 +11,7 @@
  */
 
 import type { TTSProvider } from "./tts-presets";
+import { CircuitBreaker } from "@/lib/circuit-breaker";
 
 export interface TTSConfig {
   /** 平台，缺省 "openai" */
@@ -29,9 +30,37 @@ export interface TTSConfig {
 }
 
 /** 生成配音音频，返回 mp3 字节。失败抛错，由调用方决定降级。 */
+// 熔断：同一 provider 连续失败 2 次（多半 Key 失效/服务挂）就 fail-fast 后续配音，
+// 别让一整批分镜每个都各自超时拖垮合成；冷却 30s 后自动半开重试。
+const ttsBreakers = new Map<string, CircuitBreaker>();
+function ttsBreaker(provider: string): CircuitBreaker {
+  let b = ttsBreakers.get(provider);
+  if (!b) {
+    b = new CircuitBreaker(2, 30_000);
+    ttsBreakers.set(provider, b);
+  }
+  return b;
+}
+
 export async function generateSpeech(text: string, config: TTSConfig): Promise<Buffer> {
   const clean = (text || "").trim();
   if (!clean) throw new Error("配音文本为空");
+  const provider = config.provider || "openai";
+  const breaker = ttsBreaker(provider);
+  if (breaker.isOpen()) {
+    throw new Error(`配音服务(${provider})连续失败已暂时熔断——请检查对应平台 Key/服务，约 30 秒后自动重试`);
+  }
+  try {
+    const buf = await dispatchTTS(clean, config);
+    breaker.recordSuccess();
+    return buf;
+  } catch (e) {
+    breaker.recordFailure();
+    throw e;
+  }
+}
+
+function dispatchTTS(clean: string, config: TTSConfig): Promise<Buffer> {
   switch (config.provider) {
     case "atlas":
       return generateSpeechAtlas(clean, config);
