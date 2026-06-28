@@ -11,6 +11,7 @@ import { useSettingsStore } from "@/lib/stores/settings-store";
 import { buildPublishPack } from "@/lib/publish-pack";
 import { useT, useLocale } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
+import { PerformanceFeedback } from "@/components/performance-feedback";
 
 // 平台导出配置（规划中功能，展示用）。name 用 i18n key（nameKey）在渲染时取译文
 const platformConfigs = [
@@ -513,6 +514,11 @@ export default function ExportPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* 效果回流：发布后回填数据 → 学出哪种风格更能卖 */}
+        <div className="mb-6">
+          <PerformanceFeedback projectId={id} />
+        </div>
 
         {/* A/B 变体：换字幕风格+配乐各重渲一条，投放对比哪个转化高 */}
         <Card className="glass-card mb-6">
