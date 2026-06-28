@@ -128,6 +128,8 @@ Yes. ClipForge ships an **MCP Server** — one sentence in an MCP-capable client
 
 ### 2. AI asset generation (multi-model aggregation)
 
+> 🎬 **Image-to-video is the quality path**: with a video model configured, each generated image is **automatically turned into a real moving shot via image-to-video** (the product photo is the first frame, so it stays faithful), replacing the "still + fake pan" look for a big quality lift. Toggle it off anytime; it falls back to the still on failure. With no video model, it uses the 0-cost keyless stitching fallback.
+
 One interface aggregates 7 image/video platforms + OpenRouter LLMs and 30+ mainstream models:
 
 | Platform | Image models | Video models | Highlights |
