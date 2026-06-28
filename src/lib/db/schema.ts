@@ -39,6 +39,24 @@ export const scripts = sqliteTable("scripts", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// 效果回流：发布后人工录入的各条投放数据。录入时定格 style/category/platform，
+// 便于按风格聚合「哪种更能卖」（项目后续改了也不污染历史样本）。
+export const publishMetrics = sqliteTable("publish_metrics", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  style: text("style").notNull(), // 脚本风格 key：pain_point/scene/comparison/story/custom
+  category: text("category"), // 品类（定格）
+  platform: text("platform"), // douyin/tiktok/kuaishou/xiaohongshu/...
+  views: integer("views").notNull().default(0),
+  likes: integer("likes").notNull().default(0),
+  comments: integer("comments").notNull().default(0),
+  shares: integer("shares").notNull().default(0),
+  orders: integer("orders").notNull().default(0), // 成交单数
+  note: text("note"),
+  publishedAt: integer("published_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // 素材表
 export const assets = sqliteTable("assets", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
