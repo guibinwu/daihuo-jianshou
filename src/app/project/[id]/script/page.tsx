@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { LuWand, LuClock, LuImage, LuArrowRight, LuBookmarkPlus, LuLoaderCircle, LuTriangleAlert } from "react-icons/lu";
+import { LuWand, LuClock, LuImage, LuArrowRight, LuBookmarkPlus, LuLoaderCircle, LuTriangleAlert, LuCircleCheck, LuCircleX } from "react-icons/lu";
 import { checkScriptCompliance } from "@/lib/ad-compliance";
+import { checkPublishReadiness } from "@/lib/publish-readiness";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -232,6 +233,11 @@ export default function ScriptPage() {
   const adViolations = useMemo(
     () => (currentScript ? checkScriptCompliance(currentScript.shots as { voiceover?: string; textOverlay?: { text?: string } | null }[]) : []),
     [currentScript]
+  );
+  // 发布前限流自检：违禁词/钩子/时长/字幕/CTA/三段式 逐项体检（AIGC 标签项交由合成页，这里不检）
+  const readiness = useMemo(
+    () => (currentScript ? checkPublishReadiness(currentScript.shots as Shot[], currentScript.totalDuration, { locale }) : null),
+    [currentScript, locale]
   );
 
   // 模板相关状态
@@ -473,6 +479,64 @@ export default function ScriptPage() {
 
               <TabsContent value="timeline" className="mt-0">
                 <div className="space-y-3">
+                  {readiness && (
+                    <Card
+                      className={
+                        readiness.overall === "ready"
+                          ? "border-emerald-500/40 bg-emerald-500/5"
+                          : readiness.overall === "needsWork"
+                          ? "border-red-500/40 bg-red-500/5"
+                          : "border-amber-500/40 bg-amber-500/5"
+                      }
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <span className="text-sm font-semibold">{t("readinessTitle")}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              readiness.overall === "ready"
+                                ? "bg-emerald-500/15 text-emerald-500"
+                                : readiness.overall === "needsWork"
+                                ? "bg-red-500/15 text-red-500"
+                                : "bg-amber-500/15 text-amber-500"
+                            }`}
+                          >
+                            {t(
+                              readiness.overall === "ready"
+                                ? "readinessReady"
+                                : readiness.overall === "needsWork"
+                                ? "readinessNeedsWork"
+                                : "readinessRisky"
+                            )}
+                          </span>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {readiness.items.map((it) => (
+                            <li key={it.key} className="flex items-start gap-2 text-xs">
+                              {it.status === "pass" ? (
+                                <LuCircleCheck className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                              ) : it.status === "fail" ? (
+                                <LuCircleX className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+                              ) : (
+                                <LuTriangleAlert className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+                              )}
+                              <span
+                                className={
+                                  it.status === "pass"
+                                    ? "text-muted-foreground"
+                                    : it.status === "fail"
+                                    ? "text-red-400"
+                                    : "text-amber-400"
+                                }
+                              >
+                                {it.message}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
                   {adViolations.length > 0 && (
                     <Card className="border-amber-500/40 bg-amber-500/5">
                       <CardContent className="p-4">

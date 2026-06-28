@@ -46,6 +46,10 @@ export const script: NamespaceMessages = {
     shotCount: "{n} 个镜头",
     adComplianceTitle: "广告法合规提醒（{n} 处风险词）",
     adComplianceHint: "脚本含可能违反《广告法》的风险词，发布易被限流/下架。鼠标悬停查看修改建议，建议生成素材前先改。",
+    readinessTitle: "发布前自检",
+    readinessReady: "可发布",
+    readinessRisky: "有风险",
+    readinessNeedsWork: "建议先改",
     // Tabs
     tabTimeline: "分镜时间线",
     tabText: "文案编辑",
@@ -109,6 +113,10 @@ export const script: NamespaceMessages = {
     shotCount: "{n} shots",
     adComplianceTitle: "Ad-compliance check ({n} risky terms)",
     adComplianceHint: "The script contains terms that may violate ad regulations and risk takedown/throttling. Hover a term for a fix suggestion — best to edit before generating assets.",
+    readinessTitle: "Pre-publish check",
+    readinessReady: "Ready",
+    readinessRisky: "Has risks",
+    readinessNeedsWork: "Fix first",
     // Tabs
     tabTimeline: "Shot timeline",
     tabText: "Edit copy",
