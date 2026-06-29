@@ -37,3 +37,67 @@ export function shotQuery(shot: { stockKeywords?: string[]; description?: string
   if (shot.stockKeywords?.length) return shot.stockKeywords.join(" ");
   return (shot.description || shot.voiceover || "").trim();
 }
+
+// ==================== 候选择优打分 ====================
+// 现状只取检索命中的第一条，易配错画面/整片重复同图。下面在多候选里按
+// 关键词重合 + 竖屏方向 + 与相邻分镜去重 打分选最优。纯函数、可单测。
+
+type ShotLike = { stockKeywords?: string[]; description?: string; voiceover?: string };
+
+export interface CandidateLike {
+  /** 唯一标识，用于相邻分镜去重 */
+  id?: string;
+  /** 素材自带标签 */
+  tags?: string[];
+  /** 标题/描述 */
+  title?: string;
+  orientation?: "portrait" | "landscape" | "square";
+  type?: "image" | "video";
+}
+
+export interface ScoreOpts {
+  /** 偏好竖屏(9:16)，默认 true */
+  preferPortrait?: boolean;
+  /** 偏好动态视频 B-roll，默认 false */
+  preferVideo?: boolean;
+  /** 已用过的候选 id（相邻分镜去重，避免整片同图） */
+  usedIds?: Set<string>;
+}
+
+const terms = (s: string) =>
+  (s || "")
+    .toLowerCase()
+    .split(/[^a-z0-9一-鿿]+/)
+    .filter(Boolean);
+
+/** 给一个候选打分（越高越合适）。纯函数。 */
+export function scoreCandidate(shot: ShotLike, candidate: CandidateLike, opts: ScoreOpts = {}): number {
+  const wantTerms = new Set([...(shot.stockKeywords ?? []), ...terms(shotQuery(shot))].flatMap((t) => terms(t)));
+  const candTerms = new Set([...(candidate.tags ?? []), ...terms(candidate.title ?? "")].flatMap((t) => terms(t)));
+  let overlap = 0;
+  for (const t of candTerms) if (wantTerms.has(t)) overlap++;
+  let score = overlap * 10; // 关键词命中权重最高
+
+  if (opts.preferPortrait !== false) {
+    if (candidate.orientation === "portrait") score += 5;
+    else if (candidate.orientation === "landscape") score -= 3; // 横屏铺竖屏会糊/留黑边
+  }
+  if (opts.preferVideo && candidate.type === "video") score += 4;
+  if (candidate.id && opts.usedIds?.has(candidate.id)) score -= 8; // 整片别重复同一素材
+
+  return score;
+}
+
+/** 从多个候选里选最优（无候选返回 undefined）。挑中后调用方可把其 id 加入 usedIds 供后续去重。 */
+export function pickBestCandidate<T extends CandidateLike>(shot: ShotLike, candidates: T[], opts: ScoreOpts = {}): T | undefined {
+  let best: T | undefined;
+  let bestScore = -Infinity;
+  for (const c of candidates) {
+    const s = scoreCandidate(shot, c, opts);
+    if (s > bestScore) {
+      best = c;
+      bestScore = s;
+    }
+  }
+  return best;
+}
