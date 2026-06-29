@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { join } from "path";
+import { access } from "fs/promises";
 import { getDb } from "@/lib/db";
+import { getDataDir } from "@/lib/paths";
 import { scripts as scriptsTable, assets as assetsTable, type Shot } from "@/lib/db/schema";
 import { fillShotStock } from "@/lib/stock-fill";
 import { shotQuery } from "@/lib/stock-matcher";
@@ -60,7 +63,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .where(eq(assetsTable.projectId, id));
   const already = new Set(existing.map((e) => e.shotId));
 
-  const searchOpts = { apiKeys, mediaType, orientation, perPage: 10 };
+  // 本地素材池存在则纳入自动配画面：用户自有 B-roll 与免费素材一同参与择优（对标 the reference tool a local source）
+  const materialsDir = join(getDataDir(), "uploads", id, "materials");
+  let localDir: string | undefined;
+  try {
+    await access(materialsDir);
+    localDir = materialsDir;
+  } catch {
+    /* 无素材池，照常只走网络免费源 */
+  }
+
+  const searchOpts = { apiKeys, mediaType, orientation, perPage: 10, localDir };
   type ShotFillResult = { shotId: number; ok: boolean; query: string; provider?: string; mediaType?: StockMediaType; reason?: string };
 
   // 逐镜检索本是独立的（各镜结果只依赖自身、写不同 asset 行），有界并发(4)替代串行，整体更快、又不打爆下游 API

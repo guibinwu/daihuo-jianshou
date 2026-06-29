@@ -4,6 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { classifyMaterial, scoreByFilename, scanLocalMaterials } from "@/lib/providers/local-stock";
 import { downloadStockFile } from "@/lib/providers/stock-types";
+import { searchStock } from "@/lib/providers/stock-registry";
 
 let dir: string;
 beforeAll(async () => {
@@ -49,6 +50,13 @@ describe("scanLocalMaterials", () => {
   });
   it("audio 请求 → []（本地不支持音频）", async () => {
     expect(await scanLocalMaterials(dir, "x", { mediaType: "audio" })).toEqual([]);
+  });
+});
+
+describe("registry: searchStock('local')", () => {
+  it("有 localDir → 扫池；无 localDir → []（不参与）", async () => {
+    expect((await searchStock("local", "pour over", { localDir: dir })).length).toBe(3);
+    expect(await searchStock("local", "pour over", {})).toEqual([]);
   });
 });
 
