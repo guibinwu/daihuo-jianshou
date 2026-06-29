@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { LuChartNoAxesColumn, LuCheck } from "react-icons/lu";
-import type { StyleInsight } from "@/lib/performance-insights";
+import type { StyleInsight, HookInsight } from "@/lib/performance-insights";
 
 // 风格 key → 展示名（聚合返回的是 styleType key）
 const STYLE_LABEL: Record<string, { zh: string; en: string }> = {
@@ -17,6 +17,20 @@ const STYLE_LABEL: Record<string, { zh: string; en: string }> = {
   custom: { zh: "自定义", en: "Custom" },
 };
 
+// 钩子机制 id → 展示名（与 hook-patterns 的 HOOK_PATTERNS 对应）
+const HOOK_LABEL: Record<string, { zh: string; en: string }> = {
+  visual_shock: { zh: "视觉冲击", en: "Visual shock" },
+  suspense_question: { zh: "悬念提问", en: "Suspense" },
+  contrast: { zh: "反差对比", en: "Contrast" },
+  pain_strike: { zh: "痛点直击", en: "Pain-point" },
+  before_after: { zh: "前后对比", en: "Before-after" },
+  sound_hook: { zh: "声音钩子", en: "Sound hook" },
+  challenge_doubt: { zh: "挑战质疑", en: "Challenge" },
+  identity: { zh: "身份共鸣", en: "Identity" },
+  number_benefit: { zh: "数字利益", en: "Number" },
+  unexpected: { zh: "反常识意外", en: "Unexpected" },
+};
+
 const NUM_FIELDS = [
   { key: "views", zh: "播放", en: "Views" },
   { key: "likes", zh: "点赞", en: "Likes" },
@@ -25,14 +39,15 @@ const NUM_FIELDS = [
   { key: "orders", zh: "成交", en: "Orders" },
 ] as const;
 
-type FormState = { platform: string; views: string; likes: string; comments: string; shares: string; orders: string; note: string };
-const EMPTY: FormState = { platform: "douyin", views: "", likes: "", comments: "", shares: "", orders: "", note: "" };
+type FormState = { platform: string; hookId: string; views: string; likes: string; comments: string; shares: string; orders: string; note: string };
+const EMPTY: FormState = { platform: "douyin", hookId: "", views: "", likes: "", comments: "", shares: "", orders: "", note: "" };
 
 export function PerformanceFeedback({ projectId }: { projectId: string }) {
   const locale = useLocale();
   const en = locale === "en";
   const [form, setForm] = useState<FormState>(EMPTY);
   const [insights, setInsights] = useState<StyleInsight[]>([]);
+  const [hookInsights, setHookInsights] = useState<HookInsight[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -41,6 +56,7 @@ export function PerformanceFeedback({ projectId }: { projectId: string }) {
       const r = await fetch("/api/insights/styles");
       const j = await r.json();
       setInsights(Array.isArray(j.insights) ? j.insights : []);
+      setHookInsights(Array.isArray(j.hookInsights) ? j.hookInsights : []);
     } catch {
       /* 静默：洞察区为空即可 */
     }
@@ -69,6 +85,7 @@ export function PerformanceFeedback({ projectId }: { projectId: string }) {
 
   const fmtPct = (x: number) => (x * 100).toFixed(2) + "%";
   const styleName = (s: string) => STYLE_LABEL[s]?.[en ? "en" : "zh"] ?? s;
+  const hookName = (h: string) => HOOK_LABEL[h]?.[en ? "en" : "zh"] ?? h;
   const canSave = Number(form.views) > 0;
 
   return (
@@ -97,6 +114,22 @@ export function PerformanceFeedback({ projectId }: { projectId: string }) {
               <option value="tiktok">TikTok</option>
               <option value="kuaishou">{en ? "Kuaishou" : "快手"}</option>
               <option value="xiaohongshu">{en ? "Xiaohongshu" : "小红书"}</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-muted-foreground">{en ? "Hook" : "钩子"}</span>
+            <select
+              value={form.hookId}
+              onChange={(e) => setForm({ ...form, hookId: e.target.value })}
+              title={en ? "Which hook mechanism this video used (for hook A/B)" : "这条用的哪种钩子机制（用于钩子 A/B）"}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            >
+              <option value="">{en ? "— hook —" : "— 钩子 —"}</option>
+              {Object.entries(HOOK_LABEL).map(([id, l]) => (
+                <option key={id} value={id}>
+                  {en ? l.en : l.zh}
+                </option>
+              ))}
             </select>
           </label>
           {NUM_FIELDS.map((f) => (
@@ -134,6 +167,34 @@ export function PerformanceFeedback({ projectId }: { projectId: string }) {
                   <span className={`w-16 shrink-0 ${i === 0 ? "text-emerald-500 font-medium" : ""}`}>
                     {i === 0 ? "🏆 " : ""}
                     {styleName(it.style)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {en ? "conv." : "转化"} <b className={i === 0 ? "text-emerald-500" : ""}>{fmtPct(it.conversionRate)}</b>
+                  </span>
+                  <span className="text-muted-foreground">
+                    {en ? "eng." : "互动"} {fmtPct(it.engagementRate)}
+                  </span>
+                  <span className="text-muted-foreground/70">
+                    {en ? `${it.samples} sample(s)` : `${it.samples} 条样本`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 聚合洞察：哪个钩子机制更能卖 */}
+        {hookInsights.length > 0 && (
+          <div className="border-t border-border/50 pt-3 mt-3">
+            <p className="text-xs font-medium mb-2">
+              {en ? "Which hook sells best (all projects)" : "哪个钩子更能卖（全部项目）"}
+            </p>
+            <div className="space-y-1.5">
+              {hookInsights.map((it, i) => (
+                <div key={it.hookId} className="flex items-center gap-3 text-xs">
+                  <span className={`w-16 shrink-0 ${i === 0 ? "text-emerald-500 font-medium" : ""}`}>
+                    {i === 0 ? "🏆 " : ""}
+                    {hookName(it.hookId)}
                   </span>
                   <span className="text-muted-foreground">
                     {en ? "conv." : "转化"} <b className={i === 0 ? "text-emerald-500" : ""}>{fmtPct(it.conversionRate)}</b>

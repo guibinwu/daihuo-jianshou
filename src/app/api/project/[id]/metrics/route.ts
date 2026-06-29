@@ -56,6 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .values({
       projectId: id,
       style,
+      hookId: typeof body.hookId === "string" && body.hookId ? body.hookId : null,
       category,
       platform: typeof body.platform === "string" ? body.platform : null,
       views: num(body.views),

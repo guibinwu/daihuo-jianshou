@@ -45,6 +45,7 @@ export const publishMetrics = sqliteTable("publish_metrics", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   style: text("style").notNull(), // 脚本风格 key：pain_point/scene/comparison/story/custom
+  hookId: text("hook_id"), // 钩子机制 id（= HookPattern.id），钩子 A/B 回流用，可空
   category: text("category"), // 品类（定格）
   platform: text("platform"), // douyin/tiktok/kuaishou/xiaohongshu/...
   views: integer("views").notNull().default(0),
