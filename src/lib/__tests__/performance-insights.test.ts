@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { aggregateByStyle, topConvertingStyle, type MetricInput } from "@/lib/performance-insights";
+import { aggregateByStyle, topConvertingStyle, aggregateByHook, topConvertingHook, type MetricInput } from "@/lib/performance-insights";
 
 const recs: MetricInput[] = [
   { style: "pain_point", views: 10000, likes: 500, comments: 100, shares: 50, orders: 80 },
@@ -53,5 +53,31 @@ describe("topConvertingStyle", () => {
       { style: "a", views: 100, orders: 0 },
       { style: "a", views: 200, orders: 0 },
     ])).toBeNull();
+  });
+});
+
+describe("aggregateByHook / topConvertingHook（钩子 A/B 回流）", () => {
+  const recs: MetricInput[] = [
+    { style: "x", hookId: "visual_shock", views: 10000, orders: 100 },
+    { style: "x", hookId: "visual_shock", views: 10000, orders: 120 },
+    { style: "x", hookId: "suspense", views: 10000, orders: 30 },
+    { style: "x", views: 10000, orders: 50 }, // 无 hookId，跳过
+  ];
+
+  it("按 hookId 聚合、无 hookId 跳过、转化率降序", () => {
+    const agg = aggregateByHook(recs);
+    expect(agg.map((i) => i.hookId)).toEqual(["visual_shock", "suspense"]);
+    expect(agg[0].samples).toBe(2);
+    expect(agg[0].conversionRate).toBeCloseTo(220 / 20000, 6);
+  });
+
+  it("topConvertingHook 需够样本", () => {
+    expect(topConvertingHook(recs)?.hookId).toBe("visual_shock");
+    expect(topConvertingHook(recs, 3)).toBeNull();
+  });
+
+  it("style 聚合不受 hookId 影响（向后兼容，4 条同 style 计入）", () => {
+    expect(aggregateByStyle(recs)[0].style).toBe("x");
+    expect(aggregateByStyle(recs)[0].samples).toBe(4);
   });
 });
