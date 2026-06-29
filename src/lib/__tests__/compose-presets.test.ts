@@ -5,6 +5,7 @@ import {
   resolveRenderProfile,
   safeEncodeParams,
   isRenderPreset,
+  recommendPreset,
 } from "@/lib/compose-presets";
 
 describe("resolveRenderProfile（渲染质量预设）", () => {
@@ -52,5 +53,25 @@ describe("safeEncodeParams（防 FFmpeg 参数注入兜底）", () => {
     expect(safeEncodeParams("medium", 20.7).crf).toBe(21);
     expect(safeEncodeParams("medium", NaN).crf).toBe(18);
     expect(safeEncodeParams("medium", undefined).crf).toBe(18);
+  });
+});
+
+describe("recommendPreset（内容自适应档位）", () => {
+  it("短而简单 → fast", () => {
+    expect(recommendPreset({ shotCount: 2, totalDuration: 12 }).preset).toBe("fast");
+  });
+  it("长片/多分镜/多 i2v → hd", () => {
+    expect(recommendPreset({ shotCount: 3, totalDuration: 45 }).preset).toBe("hd"); // 长
+    expect(recommendPreset({ shotCount: 7, totalDuration: 20 }).preset).toBe("hd"); // 多分镜
+    expect(recommendPreset({ shotCount: 3, totalDuration: 20, i2vCount: 3 }).preset).toBe("hd"); // 多 i2v
+  });
+  it("常规 → standard", () => {
+    expect(recommendPreset({ shotCount: 4, totalDuration: 25 }).preset).toBe("standard");
+  });
+  it("有 i2v 就不算「简单」，不降到 fast", () => {
+    expect(recommendPreset({ shotCount: 2, totalDuration: 12, i2vCount: 1 }).preset).toBe("standard");
+  });
+  it("附带可读理由", () => {
+    expect(recommendPreset({ shotCount: 2, totalDuration: 12 }).reason).toBeTruthy();
   });
 });

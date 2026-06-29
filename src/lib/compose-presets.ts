@@ -41,6 +41,28 @@ export function isRenderPreset(v: unknown): v is RenderPreset {
   return typeof v === "string" && v in RENDER_PRESETS;
 }
 
+export interface ContentSignals {
+  shotCount: number;
+  /** 用了图生视频(i2v)的分镜数——i2v 已是真视频段，更值得上高画质 */
+  i2vCount?: number;
+  totalDuration: number;
+}
+
+/**
+ * 按内容复杂度推荐渲染档位 + 一句理由：短而简单→fast 先看效果；长片/多分镜/多 i2v→hd 值得高清；
+ * 其余→standard。UI 标「已为你推荐 X（理由）」，用户仍可改；白名单安全机制不变。
+ */
+export function recommendPreset(s: ContentSignals): { preset: RenderPreset; reason: string } {
+  const i2v = s.i2vCount ?? 0;
+  if (s.totalDuration >= 40 || s.shotCount >= 6 || i2v >= 3) {
+    return { preset: "hd", reason: "内容较复杂（长片/多分镜/多 AI 视频），建议高清出片" };
+  }
+  if (s.totalDuration <= 15 && s.shotCount <= 2 && i2v === 0) {
+    return { preset: "fast", reason: "短而简单，先快速出片看效果" };
+  }
+  return { preset: "standard", reason: "常规长度，标准档均衡画质与速度" };
+}
+
 /** 校验并夹取编码参数为合法范围，供合成器最后一道兜底（即使外部直接传也安全） */
 export function safeEncodeParams(videoPreset: string | undefined, crf: number | undefined): {
   videoPreset: string;
