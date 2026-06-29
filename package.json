@@ -17,6 +17,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "mcp": "node mcp/clipforge-mcp.mjs",
+    "cli": "node bin/clipforge.mjs",
     "bundle:standalone": "node scripts/bundle-standalone.mjs",
     "electron": "electron .",
     "electron:rebuild": "electron-rebuild -f -w better-sqlite3",
