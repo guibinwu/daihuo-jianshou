@@ -166,7 +166,7 @@ node bin/clipforge.mjs --help          # 全部命令与参数
 | **Wikimedia Commons** | ✅ | 图片 / **视频** / 音频 | CC/公共领域，**唯一免 Key 的视频源**（取 ≤720p webm 转码）+ 免费 BGM 来源，直链可下 |
 | **Pixabay** | 免费 Key | 视频 / 图片 | 实拍 B-roll 主力补充 |
 | **Pexels** | 免费 Key | 视频 / 图片 | 高质量可商用 |
-| **本地素材** 🆕 | ✅ | 视频 / 图片 | 上传自有/自拍 B-roll 到项目素材池，自动配画面时与免费素材**一同择优**（对标 an open-source short-video tool `a local source`） |
+| **本地素材** 🆕 | ✅ | 视频 / 图片 | 上传自有/自拍 B-roll 到项目素材池，自动配画面**优先用你自己的**、不足再用免费素材补（对标 an open-source short-video tool `a local source`） |
 
 - 统一接口 `/api/stock/search`：`source` 指定单源或 `all` **聚合检索**（命中请求媒体类型优先、keyless 源优先、竖屏朝向优先）
 - **免 Key 实拍视频 B-roll**：靠 Wikimedia Commons，**无需任何 Key** 就能给分镜配动态视频（`footage:"auto"` 逐镜「视频优先、缺则图片」）

@@ -368,6 +368,18 @@ describe("rankStockCandidates（聚合排序）", () => {
     );
     expect(ranked[0].id).toBe("port");
   });
+
+  it("本地自有素材（同类型）优先于带尺寸的免费源——上传即想用", () => {
+    const ranked = rankStockCandidates(
+      [
+        cand({ source: "wikimedia", mediaType: "video", id: "wiki", width: 1080, height: 1920 }),
+        cand({ source: "local", mediaType: "video", id: "mine" }), // 本地无尺寸，仍应排前
+      ],
+      "video",
+      "portrait",
+    );
+    expect(ranked[0].id).toBe("mine");
+  });
 });
 
 describe("Wikimedia 跳过无 webm 转码的视频", () => {
