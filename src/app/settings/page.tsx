@@ -653,7 +653,7 @@ export default function SettingsPage() {
                   <div className="mb-4 p-3 rounded-lg bg-muted/50 border border-border/50">
                     <p className="text-xs text-muted-foreground mb-2">{t("llmPresetHint")}</p>
                     <div className="flex flex-wrap gap-2">
-                      {[
+                      {([
                         { label: "Atlas Cloud", baseUrl: "https://api.atlascloud.ai/v1", model: "claude-sonnet-4-20250514", tip: t("presetAtlasTip") },
                         { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", model: "openai/gpt-4o", tip: t("presetOpenrouterTip") },
                         { label: "DeepSeek", baseUrl: "https://api.deepseek.com", model: "deepseek-v3.2", tip: t("presetDeepseekTip") },
@@ -662,10 +662,12 @@ export default function SettingsPage() {
                         { label: "MiniMax", baseUrl: "https://api.minimax.chat/v1", model: "MiniMax-M2.7", tip: t("presetMinimaxTip") },
                         { label: "豆包", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", model: "doubao-seed-2.0-pro", tip: t("presetDoubaoTip") },
                         { label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-5.4", tip: "" },
-                      ].map((preset) => (
+                        { label: "Ollama 本地", baseUrl: "http://localhost:11434/v1", model: "qwen2.5", tip: t("presetOllamaTip"), apiKey: "ollama" },
+                        { label: "Pollinations", baseUrl: "https://text.pollinations.ai/openai", model: "openai-fast", tip: t("presetPollinationsTip"), apiKey: "pollinations" },
+                      ] as { label: string; baseUrl: string; model: string; tip: string; apiKey?: string }[]).map((preset) => (
                         <button
                           key={preset.label}
-                          onClick={() => setLLM({ ...llm, baseUrl: preset.baseUrl, model: preset.model, visionModel: preset.model })}
+                          onClick={() => setLLM({ ...llm, baseUrl: preset.baseUrl, model: preset.model, visionModel: preset.model, ...(preset.apiKey ? { apiKey: preset.apiKey } : {}) })}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs border border-border/50 bg-background hover:border-primary/40 hover:text-primary transition-colors"
                         >
                           {preset.label}

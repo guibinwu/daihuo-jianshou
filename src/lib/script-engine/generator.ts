@@ -96,7 +96,8 @@ export interface ProductAnalysisResult {
 function createClient(config: LLMConfig): OpenAI {
   return new OpenAI({
     baseURL: config.baseUrl,
-    apiKey: config.apiKey,
+    // 本地/免费 OpenAI 兼容端点（Ollama、Pollinations）无需真 Key；SDK 要求非空，缺省给占位符
+    apiKey: config.apiKey || "no-key",
   });
 }
 
