@@ -278,6 +278,56 @@ const TOOLS = [
       required: ["projectId"],
     },
   },
+  {
+    name: "clipforge_trends",
+    description:
+      "拉某地区每日热搜，建议「该做什么主题」（含热度 + 相关新闻背景），可直接当 clipforge_create_video 的 topic。免 Key，不需要 LLM。",
+    inputSchema: {
+      type: "object",
+      properties: { geo: { type: "string", description: "地区两字母码，如 US/JP/GB，默认 US（en 系国家覆盖最全）" } },
+    },
+  },
+  {
+    name: "clipforge_import_script",
+    description:
+      "把你已经写好的整段旁白导入某项目，自动切成分镜（免 AI 生成），之后用 clipforge_compose 出片。配合本地素材即「自带稿子+自带素材」全自主成片。不需要 LLM。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "项目 ID（来自 list_projects）" },
+        script: { type: "string", description: "你写好的整段旁白文案" },
+        title: { type: "string", description: "可选标题" },
+      },
+      required: ["projectId", "script"],
+    },
+  },
+  {
+    name: "clipforge_dub",
+    description:
+      "把某项目当前脚本翻成目标语种、存为译制版（出海：同片换语种发不同市场，画面不变只换声音字幕）。返回推荐音色，再用 clipforge_compose 传该 voice 出译制版。需要 LLM 环境变量。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "项目 ID" },
+        targetLang: { type: "string", description: "目标语种码，如 en/ja/ko/es" },
+      },
+      required: ["projectId", "targetLang"],
+    },
+  },
+  {
+    name: "clipforge_cover",
+    description:
+      "从某项目最新成片抽一帧 + 叠加大标题生成封面图/缩略图（提升点击率）。需先合成过视频。不需要 LLM。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "项目 ID" },
+        title: { type: "string", description: "封面标题（短而吸睛）" },
+        position: { type: "string", enum: ["center", "lower", "upper"], description: "标题位置，默认 center" },
+      },
+      required: ["projectId", "title"],
+    },
+  },
 ];
 
 // ---- Tool handlers ----
@@ -440,7 +490,7 @@ async function handleGetVideo(args) {
 async function handleIngestProduct(args) {
   const url = String(args.url || "").trim();
   if (!/^https?:\/\/.+/i.test(url)) throw new Error("url 必须是合法的 http/https 商品链接");
-  const createProject = args.createProject !== false; // 默认建项目并下图
+  const createProject = args.createProject !== false; // create the project and download images by default
   const data = await api("/api/ingest/product", { method: "POST", body: { url, createProject } });
   return ok({
     ok: true,
@@ -453,6 +503,56 @@ async function handleIngestProduct(args) {
   });
 }
 
+// Trending topics → suggest what to make next
+async function handleTrends(args) {
+  const geo = typeof args.geo === "string" && /^[a-z]{2}$/i.test(args.geo) ? args.geo : "US";
+  const res = await api(`/api/trends?geo=${encodeURIComponent(geo)}`);
+  return ok({ ok: true, geo: res.geo, count: res.count ?? (res.topics || []).length, topics: res.topics ?? [] });
+}
+
+// Import a user-written script → split into shots (no LLM)
+async function handleImportScript(args) {
+  const projectId = String(args.projectId || "").trim();
+  if (!projectId) throw new Error("projectId 不能为空");
+  const script = String(args.script || "").trim();
+  if (script.length < 2) throw new Error("script 太短，请给完整旁白文案");
+  const res = await api(`/api/project/${projectId}/import-script`, {
+    method: "POST",
+    body: { script, title: typeof args.title === "string" ? args.title : undefined },
+  });
+  return ok({ ok: true, projectId, scriptId: res.scriptId, shots: res.shots, next: "用 clipforge_compose { projectId } 出片。" });
+}
+
+// Dub: translate the current script into another language (needs LLM)
+async function handleDub(args) {
+  requireLlm();
+  const projectId = String(args.projectId || "").trim();
+  if (!projectId) throw new Error("projectId 不能为空");
+  const targetLang = String(args.targetLang || "").trim();
+  if (!targetLang) throw new Error("targetLang 不能为空（如 en/ja/ko/es）");
+  const res = await api(`/api/project/${projectId}/dub`, { method: "POST", body: { targetLang, llmConfig: LLM } });
+  return ok({
+    ok: true,
+    projectId,
+    targetLang,
+    scriptId: res.scriptId,
+    recommendedVoice: res.recommendedVoice ?? null,
+    next: `用 clipforge_compose { projectId, voice: "${res.recommendedVoice || "<目标语种音色>"}" } 出译制版。`,
+  });
+}
+
+// Cover/thumbnail: frame + bold title overlay from the latest composed video
+async function handleCover(args) {
+  const projectId = String(args.projectId || "").trim();
+  if (!projectId) throw new Error("projectId 不能为空");
+  const title = String(args.title || "").trim();
+  if (!title) throw new Error("title 不能为空");
+  const body = { title };
+  if (["center", "lower", "upper"].includes(args.position)) body.position = args.position;
+  const res = await api(`/api/project/${projectId}/cover`, { method: "POST", body });
+  return ok({ ok: true, projectId, cover: res.cover ? `${BASE_URL}${res.cover}` : null });
+}
+
 const HANDLERS = {
   clipforge_create_video: handleCreateVideo,
   clipforge_ingest_product: handleIngestProduct,
@@ -462,6 +562,10 @@ const HANDLERS = {
   clipforge_compose: handleCompose,
   clipforge_list_voices: handleListVoices,
   clipforge_get_video: handleGetVideo,
+  clipforge_trends: handleTrends,
+  clipforge_import_script: handleImportScript,
+  clipforge_dub: handleDub,
+  clipforge_cover: handleCover,
 };
 
 // ---- Start MCP server ----
