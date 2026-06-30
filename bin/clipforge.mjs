@@ -259,6 +259,19 @@ async function cmdCover(flags) {
   return { ok: true, projectId, cover: res.cover };
 }
 
+// GIF preview: turn a slice of the latest composed video into a shareable looping GIF
+async function cmdPreview(flags) {
+  const projectId = String(flags.project || "").trim();
+  if (!projectId) throw new Error("--project 不能为空");
+  const body = {};
+  if (flags.start && Number.isFinite(Number(flags.start))) body.startSec = Number(flags.start);
+  if (flags.duration && Number.isFinite(Number(flags.duration))) body.durationSec = Number(flags.duration);
+  if (flags.width && Number.isFinite(Number(flags.width))) body.width = Number(flags.width);
+  const res = await api(`/api/project/${projectId}/preview-gif`, { method: "POST", body });
+  step(`预览 GIF 已生成：${res.gif}`);
+  return { ok: true, projectId, gif: res.gif };
+}
+
 // Trending topics: fetch daily trending searches for a region and suggest what topic to produce next (then use create --topic)
 async function cmdTrends(flags) {
   const geo = typeof flags.geo === "string" ? flags.geo : "US";
@@ -317,6 +330,7 @@ const HELP = `ClipForge CLI · 命令行一句话出片
   clipforge list                列出项目
   clipforge voices              列出免费 Edge TTS 音色
   clipforge cover --project <id> --title "手冲咖啡 三步搞定" [--position center|lower|upper]   生成封面图
+  clipforge preview --project <id> [--start 0 --duration 4 --width 360]   生成预览 GIF
   clipforge get --project <id>  查最新成片地址
   clipforge --help | --version
 
@@ -327,7 +341,7 @@ const HELP = `ClipForge CLI · 命令行一句话出片
 
 进度打印到 stderr，最终结果（含 videoUrl）打印到 stdout，便于管道取值。`;
 
-const COMMANDS = { create: cmdCreate, import: cmdImport, dub: cmdDub, compose: cmdCompose, cover: cmdCover, list: cmdList, voices: cmdVoices, get: cmdGet, trends: cmdTrends };
+const COMMANDS = { create: cmdCreate, import: cmdImport, dub: cmdDub, compose: cmdCompose, cover: cmdCover, preview: cmdPreview, list: cmdList, voices: cmdVoices, get: cmdGet, trends: cmdTrends };
 
 async function main() {
   const { _, flags } = parseArgs(process.argv.slice(2));

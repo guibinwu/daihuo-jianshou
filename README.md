@@ -128,6 +128,7 @@ node bin/clipforge.mjs create --topic "在家手冲咖啡" --quality hd --bgm   
 node bin/clipforge.mjs import --project <id> --file my-script.txt        # 用自己写好的稿子出片
 node bin/clipforge.mjs dub --project <id> --lang en                      # 换语种译制(出海)，再 compose
 node bin/clipforge.mjs cover --project <id> --title "手冲咖啡 三步搞定"     # 给成片生成封面图(提升点击率)
+node bin/clipforge.mjs preview --project <id>                            # 生成预览 GIF(分享/嵌入)
 node bin/clipforge.mjs list            # 列出项目
 node bin/clipforge.mjs --help          # 全部命令与参数
 ```
@@ -449,6 +450,7 @@ pnpm dist       # 出 .dmg 安装包
 - [x] **可选动效元素**（[remotion/](remotion/README.md)：Remotion 渲染动画片头标题卡 / 逐字动态字幕，FFmpeg 做不出的平滑动效；opt-in 不进基础安装，`npm run render:element`。自动合进出片为后续）
 - [x] **热点选题**（拉某地区每日热搜建议「该做什么主题」，免 Key；`GET /api/trends?geo=US` / CLI `clipforge trends`，再 `create --topic` 出片）
 - [x] **封面图生成**（从成片抽帧 + 叠大标题做封面/缩略图，提升点击率，复用 composer 字体与转义；`POST /api/project/[id]/cover` / CLI `clipforge cover`）
+- [x] **预览 GIF**（成片切片转调色板优化的循环 GIF，便于分享/嵌入/列表预览；`POST /api/project/[id]/preview-gif` / CLI `clipforge preview`）
 
 **进行中（通用化 + 桌面分发）**
 - [x] **品牌升级 ClipForge + 多语言 UI**（零依赖前端国际化，中文默认 / English 一键切换，全站页面国际化；面向全球任意主题，不止带货）
