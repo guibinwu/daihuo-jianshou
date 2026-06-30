@@ -324,8 +324,37 @@ const TOOLS = [
         projectId: { type: "string", description: "项目 ID" },
         title: { type: "string", description: "封面标题（短而吸睛）" },
         position: { type: "string", enum: ["center", "lower", "upper"], description: "标题位置，默认 center" },
+        frameAt: { type: "number", description: "抽帧位置（秒），默认 1" },
       },
       required: ["projectId", "title"],
+    },
+  },
+  {
+    name: "clipforge_preview_gif",
+    description:
+      "从某项目最新成片切一小段转成循环 GIF 预览（分享 / 嵌入 / 列表 hover 用）。需先合成过视频。不需要 LLM。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "项目 ID" },
+        startSec: { type: "number", description: "起始秒，默认 0" },
+        durationSec: { type: "number", description: "时长秒（1-10），默认 4" },
+        width: { type: "number", description: "宽度 px，默认 360" },
+      },
+      required: ["projectId"],
+    },
+  },
+  {
+    name: "clipforge_export_subtitle",
+    description:
+      "导出某项目脚本字幕为 SRT 或 WebVTT（二次剪辑 / 平台原生字幕 / 无障碍）。不需要 LLM。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "项目 ID" },
+        format: { type: "string", enum: ["srt", "vtt"], description: "字幕格式，默认 srt" },
+      },
+      required: ["projectId"],
     },
   },
 ];
@@ -549,8 +578,31 @@ async function handleCover(args) {
   if (!title) throw new Error("title 不能为空");
   const body = { title };
   if (["center", "lower", "upper"].includes(args.position)) body.position = args.position;
+  if (Number.isFinite(args.frameAt)) body.frameAt = args.frameAt;
   const res = await api(`/api/project/${projectId}/cover`, { method: "POST", body });
   return ok({ ok: true, projectId, cover: res.cover ? `${BASE_URL}${res.cover}` : null });
+}
+
+// GIF preview from the latest composed video
+async function handlePreviewGif(args) {
+  const projectId = String(args.projectId || "").trim();
+  if (!projectId) throw new Error("projectId 不能为空");
+  const body = {};
+  if (Number.isFinite(args.startSec)) body.startSec = args.startSec;
+  if (Number.isFinite(args.durationSec)) body.durationSec = args.durationSec;
+  if (Number.isFinite(args.width)) body.width = args.width;
+  const res = await api(`/api/project/${projectId}/preview-gif`, { method: "POST", body });
+  return ok({ ok: true, projectId, gif: res.gif ? `${BASE_URL}${res.gif}` : null });
+}
+
+// Export the project's subtitles as SRT/WebVTT (the route returns text, wrapped as { raw } by api())
+async function handleExportSubtitle(args) {
+  const projectId = String(args.projectId || "").trim();
+  if (!projectId) throw new Error("projectId 不能为空");
+  const format = args.format === "vtt" ? "vtt" : "srt";
+  const data = await api(`/api/project/${projectId}/subtitle?format=${format}`);
+  const subtitle = typeof data === "string" ? data : data.raw ?? "";
+  return ok({ ok: true, projectId, format, subtitle });
 }
 
 const HANDLERS = {
@@ -566,6 +618,8 @@ const HANDLERS = {
   clipforge_import_script: handleImportScript,
   clipforge_dub: handleDub,
   clipforge_cover: handleCover,
+  clipforge_preview_gif: handlePreviewGif,
+  clipforge_export_subtitle: handleExportSubtitle,
 };
 
 // ---- Start MCP server ----
