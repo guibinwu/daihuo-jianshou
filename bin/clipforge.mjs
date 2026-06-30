@@ -253,12 +253,28 @@ async function cmdGet(flags) {
   return { ok: true, projectId, status: composition.status, videoUrl: absVideoUrl(composition) };
 }
 
+// 自带脚本导入：把你写好的稿子切成分镜存为当前脚本，之后用 compose 出片（配合本地素材即全自主成片）
+async function cmdImport(flags) {
+  const projectId = String(flags.project || "").trim();
+  if (!projectId) throw new Error("--project 不能为空");
+  let script = typeof flags.text === "string" ? flags.text : "";
+  if (!script && flags.file) script = readFileSync(String(flags.file), "utf8");
+  if (!script.trim()) throw new Error('用 --file <路径> 或 --text "你的脚本文案" 提供稿子');
+  const res = await api(`/api/project/${projectId}/import-script`, {
+    method: "POST",
+    body: { script, title: typeof flags.title === "string" ? flags.title : undefined },
+  });
+  step(`已导入 ${res.shots} 个分镜（约 ${res.totalDuration}s）。下一步：clipforge compose --project ${projectId}`);
+  return { ok: true, projectId, ...res };
+}
+
 const HELP = `ClipForge CLI · 命令行一句话出片
 
 用法：
   clipforge create --topic "在家手冲咖啡" [--duration 25] [--style knowledge]
                    [--footage auto|image|video] [--voice <id>] [--aspect 9:16|16:9|1:1]
                    [--quality fast|standard|hd] [--bgm] [--bgm-mood upbeat] [--karaoke] [--cta "..."] [--json]
+  clipforge import --project <id> (--file <路径> | --text "你的脚本") [--title "..."]   自带脚本出片
   clipforge compose --project <id> [同款成片选项] [--no-fill]
   clipforge list                列出项目
   clipforge voices              列出免费 Edge TTS 音色
@@ -272,7 +288,7 @@ const HELP = `ClipForge CLI · 命令行一句话出片
 
 进度打印到 stderr，最终结果（含 videoUrl）打印到 stdout，便于管道取值。`;
 
-const COMMANDS = { create: cmdCreate, compose: cmdCompose, list: cmdList, voices: cmdVoices, get: cmdGet };
+const COMMANDS = { create: cmdCreate, import: cmdImport, compose: cmdCompose, list: cmdList, voices: cmdVoices, get: cmdGet };
 
 async function main() {
   const { _, flags } = parseArgs(process.argv.slice(2));
