@@ -19,6 +19,7 @@ import {
 import { broadenQuery } from "@/lib/stock-matcher";
 import { getDb } from "@/lib/db";
 import { assets as assetsTable } from "@/lib/db/schema";
+import { apiError, errText } from "@/lib/api-error";
 
 /** validate projectId to prevent path traversal (consistent with the upload route) */
 const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "请求体不是合法 JSON" }, { status: 400 });
+    return apiError(req, "请求体不是合法 JSON", "Request body is not valid JSON");
   }
 
   const query = String(body.query ?? "").trim();
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!query) {
-    return NextResponse.json({ error: "请填写检索词（建议英文，召回更好）" }, { status: 400 });
+    return apiError(req, "请填写检索词（建议英文，召回更好）", "Please enter a search query (English recommended for better recall)");
   }
 
   const searchOpts = { apiKeys, mediaType, perPage, orientation, minSec, maxSec };
@@ -105,11 +106,10 @@ export async function POST(req: NextRequest) {
       // single source: if the source requires a key that wasn't provided, return a precise error message
       const meta = STOCK_SOURCES.find((s) => s.id === source)!;
       if (!isSourceAvailable(meta, apiKeys)) {
-        return NextResponse.json(
-          {
-            error: `${meta.label} 需要 API Key，请在设置中填写或设置 ${meta.envKey} 环境变量（免费申请：${meta.signupUrl}）。提示：Openverse 源无需 Key。`,
-          },
-          { status: 400 }
+        return apiError(
+          req,
+          `${meta.label} 需要 API Key，请在设置中填写或设置 ${meta.envKey} 环境变量（免费申请：${meta.signupUrl}）。提示：Openverse 源无需 Key。`,
+          `${meta.label} requires an API key. Please fill it in Settings or set the ${meta.envKey} environment variable (free signup: ${meta.signupUrl}). Tip: the Openverse source needs no key.`
         );
       }
       candidates = await searchStock(source, query, searchOpts);
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     const status = /\b401\b/.test(msg) ? 401 : 502;
-    return NextResponse.json({ error: `素材检索失败：${msg}` }, { status });
+    return NextResponse.json({ error: errText(req, `素材检索失败：${msg}`, `Stock search failed: ${msg}`) }, { status });
   }
 
   // preview only
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
   // download and persist to DB
   const projectId = String(body.projectId ?? "");
   if (!projectId || !SAFE_ID.test(projectId)) {
-    return NextResponse.json({ error: "download=true 时需提供合法 projectId" }, { status: 400 });
+    return apiError(req, "download=true 时需提供合法 projectId", "A valid projectId is required when download=true");
   }
   // "always have footage" fallback: when the original query returns nothing, retry with broader fallback terms to prevent blank shots caused by niche topics
   if (candidates.length === 0) {
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     }
   }
   if (candidates.length === 0) {
-    return NextResponse.json({ error: "没有检索到可用素材，换个检索词或素材源试试", skippedSources }, { status: 404 });
+    return NextResponse.json({ error: errText(req, "没有检索到可用素材，换个检索词或素材源试试", "No usable stock media found — try a different query or source"), skippedSources }, { status: 404 });
   }
 
   const stockDir = join(getDataDir(), "uploads", projectId, "stock");
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (saved.length === 0) {
-    return NextResponse.json({ error: "素材下载全部失败，请重试" }, { status: 502 });
+    return apiError(req, "素材下载全部失败，请重试", "All stock downloads failed, please try again", 502);
   }
 
   return NextResponse.json({ assets: saved, candidatesCount: candidates.length, skippedSources });

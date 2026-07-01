@@ -3,6 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { scripts as scriptsTable, projects, type Shot } from "@/lib/db/schema";
 import { translateShots, defaultVoiceForLang, langName } from "@/lib/script-engine/translate";
+import { apiError, errText } from "@/lib/api-error";
 
 const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
 
@@ -16,7 +17,7 @@ const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!id || !SAFE_ID.test(id)) return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+  if (!id || !SAFE_ID.test(id)) return apiError(req, "无效的项目ID", "Invalid project ID");
 
   let body: Record<string, unknown> = {};
   try {
@@ -25,21 +26,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     /* allow empty body; validated below */
   }
   const targetLang = typeof body.targetLang === "string" ? body.targetLang.trim() : "";
-  if (!targetLang) return NextResponse.json({ error: "请指定 targetLang（如 en/ja/ko/es）" }, { status: 400 });
+  if (!targetLang) return apiError(req, "请指定 targetLang（如 en/ja/ko/es）", "Please specify targetLang (e.g. en/ja/ko/es)");
   const llmConfig = body.llmConfig as { baseUrl?: string; apiKey?: string; model?: string } | undefined;
   if (!llmConfig?.baseUrl || !llmConfig?.model) {
-    return NextResponse.json({ error: "请配置 LLM 参数（baseUrl、model；本地/免费端点 apiKey 可留空）" }, { status: 400 });
+    return apiError(req, "请配置 LLM 参数（baseUrl、model；本地/免费端点 apiKey 可留空）", "Please configure LLM parameters (baseUrl, model; apiKey may be left empty for local/free endpoints)");
   }
 
   const db = getDb();
   const [project] = await db.select().from(projects).where(eq(projects.id, id));
-  if (!project) return NextResponse.json({ error: "项目不存在" }, { status: 404 });
+  if (!project) return apiError(req, "项目不存在", "Project not found", 404);
 
   const rows = await db.select().from(scriptsTable).where(eq(scriptsTable.projectId, id));
-  if (!rows.length) return NextResponse.json({ error: "该项目还没有脚本" }, { status: 404 });
+  if (!rows.length) return apiError(req, "该项目还没有脚本", "This project has no script yet", 404);
   const source = rows.find((r) => r.selected) ?? rows[rows.length - 1];
   const shots = (source.shots ?? []) as Shot[];
-  if (!shots.length) return NextResponse.json({ error: "脚本没有分镜" }, { status: 400 });
+  if (!shots.length) return apiError(req, "脚本没有分镜", "The script has no shots");
 
   let translated: Shot[];
   try {
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       model: llmConfig.model,
     });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "翻译失败" }, { status: 502 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : errText(req, "翻译失败", "Translation failed") }, { status: 502 });
   }
   const totalDuration = translated.reduce((sum, sh) => sum + sh.duration, 0);
 

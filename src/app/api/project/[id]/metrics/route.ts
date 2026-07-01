@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { publishMetrics, projects, scripts as scriptsTable } from "@/lib/db/schema";
+import { apiError } from "@/lib/api-error";
 
 const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
 const num = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
 
 /** GET /api/project/[id]/metrics —— list the publish metrics recorded for this project (newest → oldest) */
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!id || !SAFE_ID.test(id)) return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+  if (!id || !SAFE_ID.test(id)) return apiError(req, "无效的项目ID", "Invalid project ID");
   const db = getDb();
   const rows = await db
     .select()
@@ -27,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!id || !SAFE_ID.test(id)) return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+  if (!id || !SAFE_ID.test(id)) return apiError(req, "无效的项目ID", "Invalid project ID");
 
   let body: Record<string, unknown> = {};
   try {
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const db = getDb();
   const [project] = await db.select().from(projects).where(eq(projects.id, id));
-  if (!project) return NextResponse.json({ error: "项目不存在" }, { status: 404 });
+  if (!project) return apiError(req, "项目不存在", "Project not found", 404);
 
   let style = typeof body.style === "string" && body.style ? body.style : "";
   if (!style) {

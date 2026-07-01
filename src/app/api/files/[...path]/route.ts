@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDataDir } from "@/lib/paths";
+import { apiError } from "@/lib/api-error";
 import { readFile } from "fs/promises";
 import { join, normalize, sep } from "path";
 import { existsSync } from "fs";
 
 // Static file server - serves uploaded images/videos
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path } = await params;
@@ -19,11 +20,11 @@ export async function GET(
 
   // Verify the resolved path is still within the uploads root directory
   if (filePath !== uploadsRoot && !filePath.startsWith(uploadsRoot + sep)) {
-    return NextResponse.json({ error: "非法路径" }, { status: 403 });
+    return apiError(req, "非法路径", "Invalid path", 403);
   }
 
   if (!existsSync(filePath)) {
-    return NextResponse.json({ error: "文件不存在" }, { status: 404 });
+    return apiError(req, "文件不存在", "File not found", 404);
   }
 
   const buffer = await readFile(filePath);

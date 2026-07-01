@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDataDir } from "@/lib/paths";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
+import { apiError, errText } from "@/lib/api-error";
 
 const ALLOWED = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/aac", "audio/mp4", "audio/x-m4a"];
 
@@ -13,19 +14,19 @@ export async function POST(
   try {
     const { id } = await params;
     if (!/^[a-zA-Z0-9-]+$/.test(id)) {
-      return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+      return apiError(req, "无效的项目ID", "Invalid project ID", 400);
     }
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    if (!file) return NextResponse.json({ error: "未收到音频文件" }, { status: 400 });
+    if (!file) return apiError(req, "未收到音频文件", "No audio file received", 400);
     const ext = file.name.split(".").pop()?.toLowerCase() || "mp3";
     const ALLOWED_EXT = ["mp3", "wav", "aac", "m4a"];
     // Accept if either MIME type or extension matches (some uploads lack an accurate MIME type)
     if (!ALLOWED.includes(file.type) && !ALLOWED_EXT.includes(ext)) {
-      return NextResponse.json({ error: "仅支持 mp3/wav/aac/m4a 音频" }, { status: 400 });
+      return apiError(req, "仅支持 mp3/wav/aac/m4a 音频", "Only mp3/wav/aac/m4a audio is supported", 400);
     }
     if (file.size > 20 * 1024 * 1024) {
-      return NextResponse.json({ error: "音频不超过 20MB" }, { status: 400 });
+      return apiError(req, "音频不超过 20MB", "Audio must not exceed 20MB", 400);
     }
 
     const dir = join(getDataDir(), "uploads", id);
@@ -37,7 +38,7 @@ export async function POST(
   } catch (error) {
     console.error("BGM 上传失败:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "上传失败" },
+      { error: error instanceof Error ? error.message : errText(req, "上传失败", "Upload failed") },
       { status: 500 }
     );
   }

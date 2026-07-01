@@ -3,6 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { scripts as scriptsTable, projects } from "@/lib/db/schema";
 import { splitNarrationIntoShots } from "@/lib/script-import";
+import { apiError } from "@/lib/api-error";
 
 const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
 
@@ -14,7 +15,7 @@ const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!id || !SAFE_ID.test(id)) return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+  if (!id || !SAFE_ID.test(id)) return apiError(req, "无效的项目ID", "Invalid project ID");
 
   let body: Record<string, unknown> = {};
   try {
@@ -23,14 +24,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     /* allow empty body; validated below */
   }
   const text = typeof body.script === "string" ? body.script.trim() : "";
-  if (text.length < 2) return NextResponse.json({ error: "请提供脚本文案" }, { status: 400 });
+  if (text.length < 2) return apiError(req, "请提供脚本文案", "Please provide script copy");
 
   const db = getDb();
   const [project] = await db.select().from(projects).where(eq(projects.id, id));
-  if (!project) return NextResponse.json({ error: "项目不存在" }, { status: 404 });
+  if (!project) return apiError(req, "项目不存在", "Project not found", 404);
 
   const shots = splitNarrationIntoShots(text);
-  if (!shots.length) return NextResponse.json({ error: "脚本无法切分出分镜（缺少有效文案）" }, { status: 422 });
+  if (!shots.length) return apiError(req, "脚本无法切分出分镜（缺少有效文案）", "Could not split the script into shots (no valid copy)", 422);
   const totalDuration = shots.reduce((sum, s) => sum + s.duration, 0);
 
   // Get the next version number; deselect old scripts and mark the newly imported script as current

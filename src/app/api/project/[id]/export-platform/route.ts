@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { compositions } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { PLATFORM_SPECS } from "@/lib/platform-specs";
+import { apiError, errText } from "@/lib/api-error";
 
 const execAsync = promisify(exec);
 
@@ -28,12 +29,12 @@ export async function POST(
   try {
     const { id } = await params;
     if (!/^[a-zA-Z0-9-]+$/.test(id)) {
-      return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+      return apiError(req, "无效的项目ID", "Invalid project ID");
     }
     const { platform } = await req.json();
     const target = PLATFORM_SIZE[platform];
     if (!target) {
-      return NextResponse.json({ error: "不支持的平台" }, { status: 400 });
+      return apiError(req, "不支持的平台", "Unsupported platform");
     }
 
     // Fetch the most recent composed video
@@ -46,7 +47,7 @@ export async function POST(
       .limit(1);
     const src = rows[0]?.outputPath;
     if (!src || !existsSync(src)) {
-      return NextResponse.json({ error: "还没有成片，请先合成视频" }, { status: 400 });
+      return apiError(req, "还没有成片，请先合成视频", "No composed video yet; please compose the video first");
     }
 
     const { w, h } = target;
@@ -75,7 +76,7 @@ export async function POST(
   } catch (error) {
     console.error("多平台导出失败:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "导出失败" },
+      { error: error instanceof Error ? error.message : errText(req, "导出失败", "Export failed") },
       { status: 500 }
     );
   }

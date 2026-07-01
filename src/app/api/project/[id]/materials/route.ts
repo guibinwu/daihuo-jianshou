@@ -3,6 +3,7 @@ import { getDataDir } from "@/lib/paths";
 import { writeFile, mkdir, readdir } from "fs/promises";
 import { join } from "path";
 import { classifyMaterial } from "@/lib/providers/local-stock";
+import { apiError } from "@/lib/api-error";
 
 const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
 /** Single-file size limit: 80 MB (videos can be large; matches the asset-download limit) */
@@ -23,9 +24,9 @@ function materialsDir(projectId: string) {
 }
 
 /** GET /api/project/[id]/materials —— list the project's local material pool (built-in B-roll) */
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!id || !SAFE_ID.test(id)) return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+  if (!id || !SAFE_ID.test(id)) return apiError(req, "无效的项目ID", "Invalid project ID", 400);
   let names: string[] = [];
   try {
     names = await readdir(materialsDir(id));
@@ -46,16 +47,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!id || !SAFE_ID.test(id)) return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+  if (!id || !SAFE_ID.test(id)) return apiError(req, "无效的项目ID", "Invalid project ID", 400);
 
   let formData: FormData;
   try {
     formData = await req.formData();
   } catch {
-    return NextResponse.json({ error: "无效的表单数据，请检查上传的文件" }, { status: 400 });
+    return apiError(req, "无效的表单数据，请检查上传的文件", "Invalid form data, please check the uploaded files", 400);
   }
   const files = formData.getAll("files") as File[];
-  if (!files.length) return NextResponse.json({ error: "请上传至少一个视频或图片文件" }, { status: 400 });
+  if (!files.length) return apiError(req, "请上传至少一个视频或图片文件", "Please upload at least one video or image file", 400);
 
   const dir = materialsDir(id);
   await mkdir(dir, { recursive: true });
@@ -63,14 +64,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const saved: { name: string; mediaType: string; url: string }[] = [];
   for (const file of files) {
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: `文件 ${file.name} 超过 80MB 大小限制` }, { status: 400 });
+      return apiError(req, `文件 ${file.name} 超过 80MB 大小限制`, `File ${file.name} exceeds the 80MB size limit`, 400);
     }
     if (!ALLOWED_MIME.has(file.type)) {
-      return NextResponse.json({ error: `文件 ${file.name} 类型不支持，仅允许 mp4/webm/mov 视频或 jpg/png/webp 图片` }, { status: 400 });
+      return apiError(req, `文件 ${file.name} 类型不支持，仅允许 mp4/webm/mov 视频或 jpg/png/webp 图片`, `File ${file.name} has an unsupported type; only mp4/webm/mov videos or jpg/png/webp images are allowed`, 400);
     }
     const rawName = file.name.replace(/[/\\]/g, ""); // strip path separators
     const mediaType = classifyMaterial(rawName);
-    if (!mediaType) return NextResponse.json({ error: `文件 ${file.name} 扩展名不支持` }, { status: 400 });
+    if (!mediaType) return apiError(req, `文件 ${file.name} 扩展名不支持`, `File ${file.name} has an unsupported extension`, 400);
 
     const ext = rawName.split(".").pop()!.toLowerCase();
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;

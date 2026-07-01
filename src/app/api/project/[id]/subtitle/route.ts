@@ -3,6 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { scripts as scriptsTable } from "@/lib/db/schema";
 import { shotsToSrt, shotsToVtt } from "@/lib/subtitle-export";
+import { apiError } from "@/lib/api-error";
 
 const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
 
@@ -12,7 +13,7 @@ const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!id || !SAFE_ID.test(id)) return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+  if (!id || !SAFE_ID.test(id)) return apiError(req, "无效的项目ID", "Invalid project ID");
 
   const format = new URL(req.url).searchParams.get("format") === "vtt" ? "vtt" : "srt";
 
@@ -24,10 +25,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .orderBy(desc(scriptsTable.version))
     .limit(1);
 
-  if (!script) return NextResponse.json({ error: "该项目还没有脚本，先生成脚本再导出字幕" }, { status: 404 });
+  if (!script) return apiError(req, "该项目还没有脚本，先生成脚本再导出字幕", "This project has no script yet; generate a script before exporting subtitles", 404);
   const shots = Array.isArray(script.shots) ? script.shots : [];
   if (!shots.some((s) => (s?.voiceover ?? "").trim())) {
-    return NextResponse.json({ error: "脚本没有可导出的旁白文案" }, { status: 422 });
+    return apiError(req, "脚本没有可导出的旁白文案", "The script has no voiceover text to export", 422);
   }
 
   const text = format === "vtt" ? shotsToVtt(shots) : shotsToSrt(shots);

@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { scripts } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { apiError, errText } from "@/lib/api-error";
 
 // Fetch all script variants for a project (the script page / assets page reads real data by projectId)
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -20,7 +21,7 @@ export async function GET(
   } catch (error) {
     console.error("Failed to fetch scripts:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "获取脚本失败" },
+      { error: error instanceof Error ? error.message : errText(req, "获取脚本失败", "Failed to fetch scripts") },
       { status: 500 }
     );
   }
@@ -36,7 +37,7 @@ export async function PATCH(
     const body = await req.json();
     const selectedId = body.selectedScriptId as string | undefined;
     if (!selectedId) {
-      return NextResponse.json({ error: "缺少 selectedScriptId" }, { status: 400 });
+      return apiError(req, "缺少 selectedScriptId", "Missing selectedScriptId", 400);
     }
     const db = getDb();
     // Deselect all scripts under this project, then select the target
@@ -51,7 +52,7 @@ export async function PATCH(
   } catch (error) {
     console.error("Failed to update script selection:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "更新失败" },
+      { error: error instanceof Error ? error.message : errText(req, "更新失败", "Update failed") },
       { status: 500 }
     );
   }

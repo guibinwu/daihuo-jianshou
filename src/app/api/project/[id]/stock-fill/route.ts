@@ -9,6 +9,7 @@ import { fillShotStock } from "@/lib/stock-fill";
 import { shotQuery } from "@/lib/stock-matcher";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import type { StockSourceId, StockMediaType, StockOrientation } from "@/lib/providers/stock-types";
+import { apiError } from "@/lib/api-error";
 
 const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
 
@@ -23,7 +24,7 @@ const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!id || !SAFE_ID.test(id)) {
-    return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+    return apiError(req, "无效的项目ID", "Invalid project ID");
   }
 
   let body: Record<string, unknown> = {};
@@ -48,12 +49,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Get the selected script (fall back to the most recent one if none is selected)
   const rows = await db.select().from(scriptsTable).where(eq(scriptsTable.projectId, id));
   if (rows.length === 0) {
-    return NextResponse.json({ error: "该项目还没有脚本，请先生成脚本" }, { status: 404 });
+    return apiError(req, "该项目还没有脚本，请先生成脚本", "This project has no script yet; please generate a script first", 404);
   }
   const script = rows.find((r) => r.selected) ?? rows[rows.length - 1];
   const shots = (script.shots ?? []) as Shot[];
   if (shots.length === 0) {
-    return NextResponse.json({ error: "脚本没有分镜" }, { status: 400 });
+    return apiError(req, "脚本没有分镜", "The script has no shots");
   }
 
   // Shots that already have any asset (avoids duplicate filling and conflicts with AI/product assets on the same shot, unless force is set)

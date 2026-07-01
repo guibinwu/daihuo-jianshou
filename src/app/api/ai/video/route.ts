@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createProvider } from "@/lib/providers";
 import { toRemoteUsableImage } from "@/lib/remote-image";
+import { apiError, errText } from "@/lib/api-error";
 
 // AI video generation
 export async function POST(req: NextRequest) {
@@ -8,11 +9,11 @@ export async function POST(req: NextRequest) {
   const { provider: providerName, model, prompt, imageUrl, mode, apiKey, baseUrl, options } = body;
 
   if (!providerName || !model) {
-    return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
+    return apiError(req, "缺少必要参数", "Missing required parameters");
   }
 
   if (!apiKey) {
-    return NextResponse.json({ error: "缺少 API Key，请先在设置中配置对应平台" }, { status: 400 });
+    return apiError(req, "缺少 API Key，请先在设置中配置对应平台", "Missing API Key, please configure the corresponding platform in settings first");
   }
 
   try {
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("生视频失败:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "生视频失败" },
+      { error: error instanceof Error ? error.message : errText(req, "生视频失败", "Video generation failed") },
       { status: 500 }
     );
   }

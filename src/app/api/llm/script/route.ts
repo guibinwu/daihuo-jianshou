@@ -8,6 +8,7 @@ import type { ProductCategory } from "@/lib/script-engine/templates";
 import { getDb } from "@/lib/db";
 import { scripts as scriptsTable, projects } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { apiError, errText } from "@/lib/api-error";
 
 /** Allowed enum values for the styleType column in the scripts table */
 const VALID_SCRIPT_STYLE = new Set(["pain_point", "scene", "comparison", "story", "custom"]);
@@ -90,11 +91,11 @@ export async function POST(req: NextRequest) {
   const duration = body.targetDuration ?? body.duration ?? 30;
 
   if (!productName) {
-    return NextResponse.json({ error: "请填写商品名称" }, { status: 400 });
+    return apiError(req, "请填写商品名称", "Please enter the product name");
   }
 
   if (!llmConfig?.baseUrl || !llmConfig?.apiKey || !llmConfig?.model) {
-    return NextResponse.json({ error: "请配置 LLM 参数（baseUrl、apiKey、model）" }, { status: 400 });
+    return apiError(req, "请配置 LLM 参数（baseUrl、apiKey、model）", "Please configure the LLM parameters (baseUrl, apiKey, model)");
   }
 
   try {
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
         .where(eq(projects.id, projectId));
       if (proj.length > 0 && proj[0].contentType === "topic") {
         return NextResponse.json(
-          { error: "该项目是一句话主题项目，请勿用带货脚本覆盖", projectId },
+          { error: errText(req, "该项目是一句话主题项目，请勿用带货脚本覆盖", "This project is a one-sentence topic project — do not overwrite it with a commerce script"), projectId },
           { status: 409 }
         );
       }
@@ -179,7 +180,7 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         // DB write failure must surface as an error — returning 200 would let the frontend navigate away thinking it succeeded, then read empty scripts from the DB (which may already have had their old scripts deleted)
         console.error("脚本落库失败:", e);
-        return NextResponse.json({ error: "脚本落库失败，请重试", projectId }, { status: 500 });
+        return NextResponse.json({ error: errText(req, "脚本落库失败，请重试", "Failed to save scripts to the database, please try again"), projectId }, { status: 500 });
       }
     }
 
@@ -187,9 +188,11 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("脚本生成失败:", error);
     const errMsg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { error: `脚本生成失败: ${errMsg}` },
-      { status: 500 }
+    return apiError(
+      req,
+      `脚本生成失败: ${errMsg}`,
+      `Script generation failed: ${errMsg}`,
+      500
     );
   }
 }

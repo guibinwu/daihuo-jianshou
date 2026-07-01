@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { extractJSON } from "@/lib/script-engine/generator";
 import { buildPublishPrompt } from "@/lib/publish-pack";
+import { apiError, errText } from "@/lib/api-error";
 
 /**
  * Generate publish copy: 3 titles, #hashtags, and a one-line promotional caption.
@@ -13,10 +14,10 @@ export async function POST(req: NextRequest) {
     const { productName, productDescription, category, platform, llmConfig, locale } = body;
 
     if (!productName) {
-      return NextResponse.json({ error: "缺少商品名称" }, { status: 400 });
+      return apiError(req, "缺少商品名称", "Missing product name");
     }
     if (!llmConfig?.baseUrl || !llmConfig?.apiKey || !llmConfig?.model) {
-      return NextResponse.json({ error: "请先配置 LLM" }, { status: 400 });
+      return apiError(req, "请先配置 LLM", "Please configure the LLM first");
     }
 
     const client = new OpenAI({ baseURL: llmConfig.baseUrl, apiKey: llmConfig.apiKey });
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("生成发布文案失败:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "生成失败" },
+      { error: error instanceof Error ? error.message : errText(req, "生成失败", "Generation failed") },
       { status: 500 }
     );
   }

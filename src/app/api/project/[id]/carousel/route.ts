@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { getDataDir } from "@/lib/paths";
 import { scripts as scriptsTable, type Shot } from "@/lib/db/schema";
 import { generateCarousel } from "@/lib/video-composer/carousel";
+import { apiError, errText } from "@/lib/api-error";
 
 const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
 
@@ -15,7 +16,7 @@ const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!id || !SAFE_ID.test(id)) return NextResponse.json({ error: "无效的项目ID" }, { status: 400 });
+  if (!id || !SAFE_ID.test(id)) return apiError(req, "无效的项目ID", "Invalid project ID");
 
   let body: Record<string, unknown> = {};
   try {
@@ -28,11 +29,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const db = getDb();
   const rows = await db.select().from(scriptsTable).where(eq(scriptsTable.projectId, id)).orderBy(desc(scriptsTable.version));
-  if (!rows.length) return NextResponse.json({ error: "该项目还没有脚本" }, { status: 404 });
+  if (!rows.length) return apiError(req, "该项目还没有脚本", "This project has no script yet", 404);
   const script = rows.find((r) => r.selected) ?? rows[0];
   const shots = (script.shots ?? []) as Shot[];
   if (!shots.some((s) => (s?.voiceover ?? "").trim())) {
-    return NextResponse.json({ error: "脚本没有可生成卡片的旁白文案" }, { status: 422 });
+    return apiError(req, "脚本没有可生成卡片的旁白文案", "The script has no voiceover text to generate cards from", 422);
   }
 
   const prefix = `card-${Date.now()}`;
@@ -50,6 +51,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const cards = files.map((f) => `/api/files/${id}/carousel/${f.split("/").pop()}`);
     return NextResponse.json({ count: cards.length, cards });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "卡片生成失败" }, { status: 500 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : errText(req, "卡片生成失败", "Card generation failed") }, { status: 500 });
   }
 }

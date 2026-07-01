@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { errText } from "@/lib/api-error";
 
 /**
  * Server-side LLM connection test.
@@ -8,7 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const { baseUrl, apiKey } = await req.json();
     if (!baseUrl || !apiKey) {
-      return NextResponse.json({ ok: false, error: "缺少 baseUrl 或 apiKey" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: errText(req, "缺少 baseUrl 或 apiKey", "Missing baseUrl or apiKey") }, { status: 400 });
     }
 
     const url = `${String(baseUrl).replace(/\/$/, "")}/models`;
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     return NextResponse.json({
       ok: false,
-      error: error instanceof Error ? error.message : "连接失败",
+      error: error instanceof Error ? error.message : errText(req, "连接失败", "Connection failed"),
     });
   }
 }

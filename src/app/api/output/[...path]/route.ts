@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDataDir } from "@/lib/paths";
+import { apiError } from "@/lib/api-error";
 import { readFile, stat } from "fs/promises";
 import { join, normalize, sep } from "path";
 import { existsSync } from "fs";
@@ -17,11 +18,11 @@ export async function GET(
   const filePath = normalize(join(outputRoot, ...decodedSegments));
 
   if (filePath !== outputRoot && !filePath.startsWith(outputRoot + sep)) {
-    return NextResponse.json({ error: "非法路径" }, { status: 403 });
+    return apiError(req, "非法路径", "Invalid path", 403);
   }
 
   if (!existsSync(filePath)) {
-    return NextResponse.json({ error: "文件不存在" }, { status: 404 });
+    return apiError(req, "文件不存在", "File not found", 404);
   }
 
   const buffer = await readFile(filePath);

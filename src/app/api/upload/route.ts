@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDataDir } from "@/lib/paths";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
+import { apiError } from "@/lib/api-error";
 
 /** Whitelist of allowed upload MIME types */
 const ALLOWED_MIME_TYPES = new Set([
@@ -27,22 +28,22 @@ export async function POST(req: NextRequest) {
   try {
     formData = await req.formData();
   } catch {
-    return NextResponse.json({ error: "无效的表单数据，请检查上传的文件" }, { status: 400 });
+    return apiError(req, "无效的表单数据，请检查上传的文件", "Invalid form data, please check the uploaded files");
   }
   const files = formData.getAll("files") as File[];
   const projectId = formData.get("projectId") as string;
 
   if (!files.length) {
-    return NextResponse.json({ error: "请上传至少一张图片" }, { status: 400 });
+    return apiError(req, "请上传至少一张图片", "Please upload at least one image");
   }
 
   if (!projectId) {
-    return NextResponse.json({ error: "缺少项目ID" }, { status: 400 });
+    return apiError(req, "缺少项目ID", "Missing project ID");
   }
 
   // Validate projectId to prevent path traversal (only UUID format or alphanumeric-hyphen allowed)
   if (!/^[a-zA-Z0-9\-]+$/.test(projectId)) {
-    return NextResponse.json({ error: "无效的项目ID格式" }, { status: 400 });
+    return apiError(req, "无效的项目ID格式", "Invalid project ID format");
   }
 
   // Create upload directory
@@ -54,17 +55,19 @@ export async function POST(req: NextRequest) {
   for (const file of files) {
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: `文件 ${file.name} 超过 20MB 大小限制` },
-        { status: 400 }
+      return apiError(
+        req,
+        `文件 ${file.name} 超过 20MB 大小限制`,
+        `File ${file.name} exceeds the 20MB size limit`
       );
     }
 
     // Validate MIME type
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      return NextResponse.json(
-        { error: `文件 ${file.name} 类型不支持，仅允许图片文件` },
-        { status: 400 }
+      return apiError(
+        req,
+        `文件 ${file.name} 类型不支持，仅允许图片文件`,
+        `File ${file.name} type is not supported; only image files are allowed`
       );
     }
 
@@ -72,9 +75,10 @@ export async function POST(req: NextRequest) {
     const rawName = file.name.replace(/[/\\]/g, ""); // strip path separators
     const ext = rawName.split(".").pop()?.toLowerCase() || "jpg";
     if (!ALLOWED_EXTENSIONS.has(ext)) {
-      return NextResponse.json(
-        { error: `文件 ${file.name} 扩展名不支持` },
-        { status: 400 }
+      return apiError(
+        req,
+        `文件 ${file.name} 扩展名不支持`,
+        `File ${file.name} extension is not supported`
       );
     }
 

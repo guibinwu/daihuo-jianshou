@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateSpeech, type TTSConfig } from "@/lib/tts";
+import { apiError, errText } from "@/lib/api-error";
 
 // TTS voice preview: return mp3 audio bytes for the frontend to preview a voice
 export async function POST(req: NextRequest) {
@@ -8,12 +9,13 @@ export async function POST(req: NextRequest) {
     const { text, ttsConfig } = body as { text?: string; ttsConfig?: TTSConfig };
 
     if (!text) {
-      return NextResponse.json({ error: "缺少配音文本" }, { status: 400 });
+      return apiError(req, "缺少配音文本", "Missing voiceover text");
     }
     if (!ttsConfig?.baseUrl || !ttsConfig?.apiKey || !ttsConfig?.model || !ttsConfig?.voice) {
-      return NextResponse.json(
-        { error: "请先在设置中配置 TTS（baseUrl、apiKey、model、voice）" },
-        { status: 400 }
+      return apiError(
+        req,
+        "请先在设置中配置 TTS（baseUrl、apiKey、model、voice）",
+        "Please configure TTS in settings first (baseUrl, apiKey, model, voice)"
       );
     }
 
@@ -27,7 +29,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("TTS failed:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "TTS 失败" },
+      { error: error instanceof Error ? error.message : errText(req, "TTS 失败", "TTS failed") },
       { status: 500 }
     );
   }
