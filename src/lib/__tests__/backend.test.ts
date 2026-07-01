@@ -653,6 +653,12 @@ describe("parseScriptResponse", () => {
     const truncated = '{"scripts": [{"title": "X", "shots": [';
     expect(() => parseScriptResponse(truncated, "pain_point")).toThrow(/截断/);
   });
+
+  it("截断在中间分镜、前一分镜已用 } 闭合时也识别为截断（括号计数，不被内部 } 骗过）", () => {
+    // shot 1 is closed with }, shot 2 is cut off — the greedy extract ends with }, but brackets are unbalanced
+    const truncated = '{"scripts": [{"title": "X", "totalDuration": 25, "shots": [{"shotId": 1, "type": "hook", "voiceover": "hi"}';
+    expect(() => parseScriptResponse(truncated, "pain_point")).toThrow(/截断/);
+  });
 });
 
 describe("内置全 CJK 字幕字体", () => {

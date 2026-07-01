@@ -146,11 +146,19 @@ export function extractJSON(text: string): string {
 }
 
 /**
- * Append an actionable hint to "JSON parse failed" errors: if the string starts with {/[ but doesn't end with }/],
- * the output was likely truncated by max_tokens — suggest increasing the token limit rather than just saying "invalid JSON".
+ * Append an actionable hint to "JSON parse failed" errors when the output looks truncated.
+ * Detect truncation by unbalanced brackets (more opens than closes) rather than "doesn't end with }/]":
+ * the greedy extractJSON can leave a trailing } from an interior object (e.g. a completed earlier shot),
+ * which fooled the old ends-with check into missing the truncation. Covers both the max_tokens case and
+ * free endpoints with a low output cap (e.g. Pollinations) where a long script is cut off.
  */
 function truncationHint(jsonStr: string): string {
-  return /^[{[]/.test(jsonStr) && !/[}\]]\s*$/.test(jsonStr) ? "（输出疑似被截断，请增大 max_tokens 后重试）" : "";
+  if (!/^[{[]/.test(jsonStr)) return "";
+  const opens = (jsonStr.match(/[{[]/g) ?? []).length;
+  const closes = (jsonStr.match(/[}\]]/g) ?? []).length;
+  return opens > closes
+    ? "（输出疑似被截断：请缩短目标时长/减少分镜，或增大 max_tokens、换用输出更充裕的模型后重试）"
+    : "";
 }
 
 /**
