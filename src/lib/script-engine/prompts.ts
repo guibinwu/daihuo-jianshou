@@ -258,6 +258,37 @@ export const PLATFORM_SEO_DIRECTIVES: Record<string, string> = {
 - 面向海外受众时口播可用英文/目标语言；AI 生成内容需打标识，避免夸大与未经证实的功效宣称`,
 };
 
+/** Platform code → human-readable label used in the prompt's "target platform" line. */
+const PLATFORM_LABELS: Record<string, string> = {
+  douyin: "抖音",
+  kuaishou: "快手",
+  xiaohongshu: "小红书",
+  tiktok: "TikTok",
+  reels: "Instagram Reels",
+  shorts: "YouTube Shorts",
+  youtube: "YouTube Shorts",
+};
+
+/**
+ * Derive a readable "target platform" label from the comma-separated platform codes.
+ * Falls back to the common domestic default (抖音/快手) when unset or unrecognized, so the
+ * commerce prompt no longer tells the LLM "target: Douyin/Kuaishou" while a TikTok directive is
+ * injected — a contradiction that degraded overseas / TikTok Shop output. Pure function.
+ */
+export function platformTargetLabel(platforms?: string): string {
+  if (!platforms) return "抖音/快手";
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const raw of platforms.split(",")) {
+    const label = PLATFORM_LABELS[raw.trim().toLowerCase()];
+    if (label && !seen.has(label)) {
+      seen.add(label);
+      labels.push(label);
+    }
+  }
+  return labels.length ? labels.join(" / ") : "抖音/快手";
+}
+
 // ==================== Golden-3-Second Strategy ====================
 
 /** Golden-3-second opening strategy library */
@@ -506,7 +537,9 @@ export function buildUserPrompt(input: ScriptGenerationInput): string {
 
   parts.push(`- 目标总时长：${targetDuration}秒`);
   parts.push(`- 画面比例：9:16 竖屏（手机观看）`);
-  parts.push(`- 目标平台：抖音/快手`);
+  // Reflect the actual distribution platforms (defaults to 抖音/快手 when unset) instead of a fixed
+  // domestic label — otherwise a TikTok / overseas target contradicts the injected platform strategy.
+  parts.push(`- 目标平台：${platformTargetLabel(platforms)}`);
 
   // append product image analysis result
   if (productAnalysis) {
