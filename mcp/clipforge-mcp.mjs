@@ -367,6 +367,7 @@ const TOOLS = [
         projectId: { type: "string", description: "项目 ID" },
         width: { type: "number", description: "卡片宽 px，默认 1080" },
         height: { type: "number", description: "卡片高 px，默认 1440（3:4）" },
+        theme: { type: "string", enum: ["night", "warm", "mint", "mono", "rose"], description: "卡片主题色，默认 night" },
       },
       required: ["projectId"],
     },
@@ -626,6 +627,7 @@ async function handleCarousel(args) {
   const body = {};
   if (Number.isFinite(args.width)) body.width = args.width;
   if (Number.isFinite(args.height)) body.height = args.height;
+  if (typeof args.theme === "string") body.theme = args.theme;
   const res = await api(`/api/project/${projectId}/carousel`, { method: "POST", body });
   return ok({ ok: true, projectId, count: res.count, cards: (res.cards || []).map((c) => `${BASE_URL}${c}`) });
 }

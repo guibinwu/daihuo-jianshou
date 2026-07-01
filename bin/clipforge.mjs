@@ -279,6 +279,7 @@ async function cmdCarousel(flags) {
   const body = {};
   if (flags.width && Number.isFinite(Number(flags.width))) body.width = Number(flags.width);
   if (flags.height && Number.isFinite(Number(flags.height))) body.height = Number(flags.height);
+  if (typeof flags.theme === "string") body.theme = flags.theme;
   const res = await api(`/api/project/${projectId}/carousel`, { method: "POST", body });
   step(`图文卡片已生成 ${res.count} 张：`);
   (res.cards || []).forEach((c, i) => process.stderr.write(`  ${i}. ${c}\n`));
@@ -344,7 +345,7 @@ const HELP = `ClipForge CLI · 命令行一句话出片
   clipforge voices              列出免费 Edge TTS 音色
   clipforge cover --project <id> --title "手冲咖啡 三步搞定" [--position center|lower|upper]   生成封面图
   clipforge preview --project <id> [--start 0 --duration 4 --width 360]   生成预览 GIF
-  clipforge carousel --project <id>   生成小红书图文卡片(标题+逐条要点)
+  clipforge carousel --project <id> [--theme night|warm|mint|mono|rose]   生成小红书图文卡片(标题+逐条要点)
   clipforge get --project <id>  查最新成片地址
   clipforge --help | --version
 

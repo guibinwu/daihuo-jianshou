@@ -1,5 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { buildCardVf } from "@/lib/video-composer/carousel";
+import { buildCardVf, resolveCardTheme, CARD_THEMES } from "@/lib/video-composer/carousel";
+
+describe("resolveCardTheme", () => {
+  it("known theme → its colors; unknown/empty → night fallback", () => {
+    expect(resolveCardTheme("warm")).toBe(CARD_THEMES.warm);
+    expect(resolveCardTheme("MINT")).toBe(CARD_THEMES.mint); // case-insensitive
+    expect(resolveCardTheme("nope")).toBe(CARD_THEMES.night);
+    expect(resolveCardTheme(undefined)).toBe(CARD_THEMES.night);
+  });
+  it("every theme has a 2-stop gradient + font color", () => {
+    for (const t of Object.values(CARD_THEMES)) {
+      expect(t.gradient).toHaveLength(2);
+      expect(typeof t.fontColor).toBe("string");
+    }
+  });
+});
 
 describe("buildCardVf", () => {
   it("long text wraps to multiple per-line centered drawtexts", () => {

@@ -45,6 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       prefix,
       width,
       height,
+      theme: typeof body.theme === "string" ? body.theme : undefined,
     });
     const cards = files.map((f) => `/api/files/${id}/carousel/${f.split("/").pop()}`);
     return NextResponse.json({ count: cards.length, cards });
