@@ -93,24 +93,58 @@ ${category ? `品类：${category}\n` : ""}${productDescription ? `卖点：${pr
 }`;
 }
 
+// Title hook pools — every template embeds the product name; point-requiring ones are dropped when no selling point.
+// A varied pool (vs 3 fixed titles) avoids identical hooks across a creator's many videos.
+const TITLE_POOL_ZH: Array<{ needsPoint?: boolean; render: (n: string, p: string) => string }> = [
+  { render: (n) => `${n}也太好用了吧！后悔没早买` },
+  { needsPoint: true, render: (n, p) => `${n}｜${p}，谁用谁回购` },
+  { render: (n) => `三个理由让你入手${n}` },
+  { render: (n) => `谁懂啊！${n}真的绝了` },
+  { render: (n) => `别乱买了，${n}闭眼入不踩雷` },
+  { render: (n) => `${n}凭什么这么火？` },
+  { render: (n) => `用了${n}才知道之前白买了` },
+  { render: (n) => `姐妹们冲！${n}平价宝藏` },
+  { needsPoint: true, render: (n, p) => `${n}测评｜${p}` },
+  { render: (n) => `入手${n}前，先看这条` },
+];
+const TITLE_POOL_EN: Array<{ needsPoint?: boolean; render: (n: string, p: string) => string }> = [
+  { render: (n) => `This ${n} is a total game-changer 🤯` },
+  { needsPoint: true, render: (n, p) => `${n} — ${p}, you'll want one` },
+  { render: (n) => `3 reasons to grab the ${n}` },
+  { render: (n) => `I can't stop using this ${n}` },
+  { render: (n) => `Why is everyone obsessed with ${n}?` },
+  { render: (n) => `The ${n} you won't regret buying` },
+  { needsPoint: true, render: (n, p) => `${n}: ${p}` },
+  { render: (n) => `Don't buy another until you've seen this ${n}` },
+];
+
+/** Deterministic string hash (stable per input, so the same product always gets the same titles). */
+function hashStr(s: string): number {
+  let h = 0;
+  for (const c of s) h = (h + c.charCodeAt(0)) >>> 0;
+  return h;
+}
+
+/** Pick 3 distinct, varied title hooks from the pool (deterministic by name; drops point-requiring templates when no point; zh clipped to 22). */
+export function pickTitles(name: string, point: string, en: boolean): string[] {
+  const pool = (en ? TITLE_POOL_EN : TITLE_POOL_ZH).filter((t) => point || !t.needsPoint);
+  const start = hashStr(name) % pool.length;
+  const out: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const s = pool[(start + i) % pool.length].render(name, point);
+    out.push(en ? clip(s, 60) : clip(s, 22));
+  }
+  return out;
+}
+
 export function buildPublishPack(input: PublishPackInput): PublishPack {
   const en = input.locale === "en";
   const name = clip((input.productName || "").trim() || (en ? "this find" : "这款好物"), en ? 40 : 16);
   const cat = (input.category || "other").toLowerCase();
   const point = firstSellingPoint(input.sellingPoints, en ? 40 : 12);
 
-  // Titles: emotion + selling-point/number hook, three different angles (English not hard-clipped; CJK limited to 22 chars)
-  const titles = en
-    ? [
-        `This ${name} is a total game-changer 🤯`,
-        point ? `${name} — ${point}, you'll want one` : `${name} you won't regret buying`,
-        `3 reasons to grab the ${name}`,
-      ]
-    : [
-        clip(`${name}也太好用了吧！后悔没早买`, 22),
-        clip(point ? `${name}｜${point}，谁用谁回购` : `${name}，闭眼入不踩雷`, 22),
-        clip(`三个理由让你入手${name}`, 22),
-      ];
+  // Titles: pick 3 varied hooks from the pool (deterministic per product, so a creator's many videos don't share identical titles)
+  const titles = pickTitles(name, point, en);
 
   // Hashtags: product-specific tag + category + platform, deduplicated, prefixed with #, capped at ~10.
   // Product-specific tag goes first — in 2026, Douyin/TikTok discovery relies heavily on product keywords;

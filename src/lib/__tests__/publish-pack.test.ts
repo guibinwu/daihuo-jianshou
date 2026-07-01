@@ -1,5 +1,32 @@
 import { describe, it, expect } from "vitest";
-import { buildPublishPack, buildPublishPrompt } from "@/lib/publish-pack";
+import { buildPublishPack, buildPublishPrompt, pickTitles } from "@/lib/publish-pack";
+
+describe("pickTitles (varied title hooks)", () => {
+  it("3 distinct titles, all contain the name, deterministic per product", () => {
+    const t = pickTitles("云柔抽纸", "超柔亲肤", false);
+    expect(t).toHaveLength(3);
+    expect(new Set(t).size).toBe(3);
+    t.forEach((x) => expect(x).toContain("云柔抽纸"));
+    expect(pickTitles("云柔抽纸", "超柔亲肤", false)).toEqual(t); // same product → same titles
+  });
+  it("hooks vary across products (a pool, not one fixed template)", () => {
+    const names = ["红", "绿", "蓝", "黄", "紫"];
+    const shells = new Set(names.map((n) => pickTitles(n, "", false)[0].split(n).join("·")));
+    expect(shells.size).toBeGreaterThan(1); // multiple distinct hook templates in rotation
+  });
+  it("drops point-requiring templates when no selling point (no dangling separators)", () => {
+    pickTitles("测试品", "", false).forEach((x) => {
+      expect(x.endsWith("｜")).toBe(false);
+      expect(x).not.toContain("｜，");
+    });
+  });
+  it("en: no CJK leakage, contains the name", () => {
+    pickTitles("Glow Serum", "hydrating", true).forEach((x) => {
+      expect(/[一-鿿]/.test(x)).toBe(false);
+      expect(x).toContain("Glow Serum");
+    });
+  });
+});
 
 describe("buildPublishPack（免 Key 发布文案包）", () => {
   it("产出 3 条标题，均含商品名", () => {
