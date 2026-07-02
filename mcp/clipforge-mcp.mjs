@@ -345,6 +345,22 @@ const TOOLS = [
     },
   },
   {
+    name: "clipforge_end_card",
+    description:
+      "把「扫码购买」二维码烧进某项目最新成片的片尾最后几秒（后处理，不改合成管线），输出新 mp4，引导扫码转化。二维码编码项目商品链接（UTM 追踪）。需先合成过视频、且项目有商品链接（或用 url 传入）。CTA 文字默认关闭（易与视频自带贴片重叠），可 ctaText 开启。不需要 LLM。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "项目 ID" },
+        url: { type: "string", description: "商品链接（不填则用项目已存的 shopUrl）" },
+        platform: { type: "string", description: "投放平台（作为 utm_source）" },
+        seconds: { type: "number", description: "片尾展示二维码的秒数，默认 3" },
+        ctaText: { type: "string", description: "二维码上方 CTA 文字（可选，默认不加，避免与视频贴片重叠）" },
+      },
+      required: ["projectId"],
+    },
+  },
+  {
     name: "clipforge_preview_gif",
     description:
       "从某项目最新成片切一小段转成循环 GIF 预览（分享 / 嵌入 / 列表 hover 用）。需先合成过视频。不需要 LLM。",
@@ -625,6 +641,19 @@ async function handleShopQr(args) {
   return ok({ ok: true, projectId, qr: res.qr ? `${BASE_URL}${res.qr}` : null, shopLink: res.shopLink ?? null });
 }
 
+// Burn a "scan to buy" QR onto the last few seconds of the composed video
+async function handleEndCard(args) {
+  const projectId = String(args.projectId || "").trim();
+  if (!projectId) throw new Error("projectId 不能为空");
+  const body = {};
+  if (typeof args.url === "string" && args.url.trim()) body.url = args.url.trim();
+  if (typeof args.platform === "string" && args.platform.trim()) body.platform = args.platform.trim();
+  if (Number.isFinite(args.seconds)) body.seconds = args.seconds;
+  if (typeof args.ctaText === "string" && args.ctaText.trim()) body.ctaText = args.ctaText.trim();
+  const res = await api(`/api/project/${projectId}/end-card`, { method: "POST", body });
+  return ok({ ok: true, projectId, video: res.video ? `${BASE_URL}${res.video}` : null, shopLink: res.shopLink ?? null });
+}
+
 // GIF preview from the latest composed video
 async function handlePreviewGif(args) {
   const projectId = String(args.projectId || "").trim();
@@ -673,6 +702,7 @@ const HANDLERS = {
   clipforge_dub: handleDub,
   clipforge_cover: handleCover,
   clipforge_shop_qr: handleShopQr,
+  clipforge_end_card: handleEndCard,
   clipforge_preview_gif: handlePreviewGif,
   clipforge_export_subtitle: handleExportSubtitle,
   clipforge_carousel: handleCarousel,

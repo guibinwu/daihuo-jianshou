@@ -452,7 +452,8 @@ pnpm dist       # 出 .dmg 安装包
 - [x] **可选动效元素**（[remotion/](remotion/README.md)：Remotion 渲染动画片头标题卡 / 逐字动态字幕，FFmpeg 做不出的平滑动效；opt-in 不进基础安装，`npm run render:element`。自动合进出片为后续）
 - [x] **热点选题**（拉某地区每日热搜建议「该做什么主题」，免 Key；`GET /api/trends?geo=US` / CLI `clipforge trends`，再 `create --topic` 出片）
 - [x] **封面图生成**（从成片抽帧 + 叠大标题做封面/缩略图，提升点击率，复用 composer 字体与转义；`POST /api/project/[id]/cover` / CLI `clipforge cover`）
-- [x] **商品挂链 + 扫码购买二维码**（商品链接随 ingest 保留 `shopUrl`；发布物料自动带 **UTM 追踪链接**；生成「扫码购买」二维码 PNG，可放片尾引导转化；`POST /api/project/[id]/shop-qr` / CLI `clipforge qr` / MCP `clipforge_shop_qr`。烧进片尾待 compose 侧接线）
+- [x] **商品挂链 + 扫码购买二维码**（商品链接随 ingest 保留 `shopUrl`；发布物料自动带 **UTM 追踪链接**；生成「扫码购买」二维码 PNG；`POST /api/project/[id]/shop-qr` / CLI `clipforge qr` / MCP `clipforge_shop_qr`）
+- [x] **片尾扫码购买**（把二维码烧进成片**片尾最后几秒**引导转化，后处理成片不改合成管线；居中落在干净中带、避开视频自带贴片；`POST /api/project/[id]/end-card` / CLI `clipforge endcard` / MCP `clipforge_end_card`）
 - [x] **预览 GIF**（成片切片转调色板优化的循环 GIF，便于分享/嵌入/列表预览；`POST /api/project/[id]/preview-gif` / CLI `clipforge preview`）
 - [x] **小红书图文卡片**（把脚本渲成图文笔记卡片：标题卡 + 逐条要点卡，渐变底+逐行居中，3:4，**5 种主题色可选**；视频之外新增图文输出格式；`POST /api/project/[id]/carousel` / CLI `clipforge carousel --theme`）
 

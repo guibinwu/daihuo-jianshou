@@ -1,0 +1,70 @@
+import { NextRequest, NextResponse } from "next/server";
+import { eq, desc } from "drizzle-orm";
+import { join } from "path";
+import { existsSync } from "fs";
+import { getDb } from "@/lib/db";
+import { getDataDir } from "@/lib/paths";
+import { projects, compositions } from "@/lib/db/schema";
+import { generateShopQr } from "@/lib/shop-qr";
+import { generateEndCard } from "@/lib/video-composer/end-card";
+import { resolveChineseFontFile } from "@/lib/video-composer/composer";
+import { apiError, errText } from "@/lib/api-error";
+
+const SAFE_ID = /^[a-zA-Z0-9\-]+$/;
+
+/**
+ * POST /api/project/[id]/end-card — burn a "scan to buy" QR onto the last few seconds of the latest
+ * composed video (post-process on the finished mp4; does not touch the compose pipeline).
+ * The QR encodes the project's UTM-tagged shop link. body: { url?, platform?, seconds?, ctaText? }
+ * ctaText is opt-in (off by default) because it can collide with the video's own end overlays.
+ */
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!id || !SAFE_ID.test(id)) return apiError(req, "无效的项目ID", "Invalid project ID");
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    /* allow empty body */
+  }
+
+  const db = getDb();
+  const [proj] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+  if (!proj) return apiError(req, "项目不存在", "Project not found", 404);
+
+  const shopUrl = (typeof body.url === "string" && body.url.trim()) || proj.shopUrl || "";
+  if (!shopUrl) {
+    return apiError(req, "该项目没有商品链接，请先设置或用 url 传入", "This project has no shop link; set one or pass a url", 400);
+  }
+
+  const [comp] = await db
+    .select()
+    .from(compositions)
+    .where(eq(compositions.projectId, id))
+    .orderBy(desc(compositions.createdAt))
+    .limit(1);
+  if (!comp?.outputPath || comp.status !== "done") {
+    return apiError(req, "请先合成视频再生成片尾二维码", "Please compose the video before adding the end-card QR");
+  }
+  const videoPath = existsSync(comp.outputPath) ? comp.outputPath : join(getDataDir(), comp.outputPath);
+  if (!existsSync(videoPath)) return apiError(req, "成片文件不存在", "The composed video file does not exist", 404);
+
+  const platform = typeof body.platform === "string" ? body.platform : undefined;
+  const seconds = typeof body.seconds === "number" ? body.seconds : undefined;
+  const ctaText = typeof body.ctaText === "string" && body.ctaText.trim() ? body.ctaText.trim() : undefined;
+
+  const ts = Date.now();
+  const qrPath = join(getDataDir(), "uploads", id, `endcard-qr-${ts}.png`);
+  const outName = `endcard-${ts}.mp4`;
+  const outPath = join(getDataDir(), "output", id, outName);
+
+  let shopLink: string;
+  try {
+    shopLink = await generateShopQr(shopUrl, qrPath, { platform, affiliateCode: proj.affiliateCode ?? undefined });
+    await generateEndCard({ videoPath, qrPath, outPath, ctaText, seconds, fontFile: resolveChineseFontFile() });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : errText(req, "片尾二维码生成失败", "End-card generation failed") }, { status: 500 });
+  }
+  return NextResponse.json({ video: `/api/output/${id}/${outName}`, shopLink });
+}
