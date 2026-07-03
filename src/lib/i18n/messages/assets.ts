@@ -36,6 +36,10 @@ export const assets: NamespaceMessages = {
     stockFillTip: "无需生图 Key：点「自动配画面」即可从免费素材库为每个分镜配好画面",
     stockFilledMsg: "已为 {filled}/{total} 个分镜配好画面",
     stockFillFailed: "自动配画面失败，请重试",
+    // 上传自有图片（解锁 user_upload 分镜死路 + 任意分镜「换一张」）
+    btnUpload: "上传图片",
+    btnReplaceUpload: "换一张",
+    uploadFailed: "上传失败，请重试",
     // 未配置生图模型提示
     noModelTitle: "未配置默认生图模型",
     noModelDesc: "AI 生成类分镜需要在设置中启用 AI 平台并选择「默认生图模型」（如 GPT Image 2）。",
@@ -100,6 +104,9 @@ export const assets: NamespaceMessages = {
     stockFillTip: "No image-gen key needed — click \"Auto-fill footage\" to pull footage for every shot from free stock",
     stockFilledMsg: "Filled {filled}/{total} shots",
     stockFillFailed: "Auto-fill failed, please retry",
+    btnUpload: "Upload",
+    btnReplaceUpload: "Replace",
+    uploadFailed: "Upload failed, please retry",
     noModelTitle: "No default image model set",
     noModelDesc: "AI-generated shots require enabling an AI platform in Settings and choosing a default image model (e.g. GPT Image 2).",
     goToSettings: "Go to Settings →",

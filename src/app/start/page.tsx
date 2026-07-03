@@ -15,7 +15,7 @@ import { getExampleProducts, type ExampleProduct } from "@/lib/examples";
 import { useT, useLocale, useSetLocale } from "@/lib/i18n";
 import { LOCALES, LOCALE_LABELS } from "@/lib/i18n/config";
 
-type Mode = "upload" | "topic";
+type Mode = "upload" | "topic" | "link";
 interface PickedImage {
   id: string;
   url: string;
@@ -47,6 +47,7 @@ export default function StartPage() {
   const [productName, setProductName] = useState("");
   const [sellingPoints, setSellingPoints] = useState("");
   const [topic, setTopic] = useState("");
+  const [link, setLink] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
@@ -116,7 +117,11 @@ export default function StartPage() {
   }, []);
 
   const canStart =
-    mode === "topic" ? topic.trim().length >= 2 : images.length >= 1 && productName.trim().length > 0;
+    mode === "topic"
+      ? topic.trim().length >= 2
+      : mode === "link"
+      ? /^https?:\/\/.+/i.test(link.trim())
+      : images.length >= 1 && productName.trim().length > 0;
 
   // read LLM config live from the store: after one-click setup the newly written Key is immediately available in the same tick, avoiding stale closure values
   const llmConfig = () => {
@@ -178,12 +183,48 @@ export default function StartPage() {
     router.push(`/project/${project.id}/script`);
   };
 
-  // actually run generation (shared by both script and upload modes); restore busy/stage on failure
+  // paste a product URL → ingest (fetch page, parse title/price/images, create project) → auto-generate script → script page
+  const startLink = async () => {
+    setStage(t("stageIngest"));
+    const ingestRes = await fetch("/api/ingest/product", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: link.trim(), createProject: true }),
+    });
+    const data = await ingestRes.json().catch(() => ({}));
+    if (!ingestRes.ok || !data.projectId) throw new Error(data.error || t("errIngest"));
+    const p = data.product || {};
+    setStage(t("stageScript"));
+    const scriptRes = await fetch("/api/llm/script", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: data.projectId,
+        productName: p.title || t("linkProductFallback"),
+        category: "other",
+        productDescription: p.description || "",
+        targetDuration: 30,
+        styleType: "auto",
+        videoMode: "product_closeup",
+        productImages: data.productImages || [],
+        llmConfig: llmConfig(),
+      }),
+    });
+    // even if script gen fails, the project exists with product data — land on the script page so the user can retry
+    if (!scriptRes.ok) {
+      router.push(`/project/${data.projectId}/script`);
+      return;
+    }
+    router.push(`/project/${data.projectId}/script`);
+  };
+
+  // actually run generation (shared by all modes); restore busy/stage on failure
   const runGeneration = async () => {
     setBusy(true);
     setError(null);
     try {
       if (mode === "topic") await startTopic();
+      else if (mode === "link") await startLink();
       else await startUpload();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("errGeneric"));
@@ -343,6 +384,10 @@ export default function StartPage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.6-3.6a2 2 0 0 0-2.8 0L6 20" /></svg>
                 {t("tabUpload")}
               </button>
+              <button className={`cf-tab${mode === "link" ? " on" : ""}`} onClick={() => setMode("link")}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                {t("tabLink")}
+              </button>
               <button className={`cf-tab${mode === "topic" ? " on" : ""}`} onClick={() => setMode("topic")}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19v3" /><path d="M8 22h8" /><rect x="9" y="2" width="6" height="13" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /></svg>
                 {t("tabTopic")}
@@ -381,6 +426,17 @@ export default function StartPage() {
                   <textarea className="cf-area" value={sellingPoints} onChange={(e) => setSellingPoints(e.target.value)} placeholder={t("sellingPointsPlaceholder")} />
                 </div>
               </>
+            ) : mode === "link" ? (
+              <div className="cf-field" style={{ marginTop: 0 }}>
+                <input
+                  className="cf-input"
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && canStart && !busy) runGeneration(); }}
+                  placeholder={t("linkPlaceholder")}
+                />
+                <div className="cf-ds" style={{ marginTop: 8 }}>{t("linkHint")}</div>
+              </div>
             ) : (
               <div className="cf-field" style={{ marginTop: 0 }}>
                 <textarea className="cf-area" style={{ minHeight: 120 }} value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={t("topicPlaceholder")} />

@@ -14,7 +14,12 @@ export const start: NamespaceMessages = {
     sub: "上传商品图，或说一句话主题。AI 自动写脚本、配画面、配音，合成竖屏成片——先开跑，要用到 AI 时再配 Key。",
     // 模式切换
     tabUpload: "上传商品图",
+    tabLink: "商品链接",
     tabTopic: "一句话成片",
+    // 商品链接模式
+    linkPlaceholder: "粘贴商品链接（淘宝/京东/拼多多/1688/独立站…）",
+    linkHint: "自动抓取商品标题、价格、主图，直接建项目并写带货脚本",
+    linkProductFallback: "导入的商品",
     // 上传模式
     dropTitle: "拖入商品图，或点击上传",
     dropSub: "JPG / PNG，最多 5 张 · 没素材？下面点个示例",
@@ -47,11 +52,13 @@ export const start: NamespaceMessages = {
     stageCreate: "创建项目…",
     stageUpload: "上传商品图…",
     stageScript: "AI 写脚本…",
+    stageIngest: "抓取商品信息…",
     // 错误提示
     errTopicScript: "生成失败，请检查 LLM 配置",
     errProjectCreate: "项目创建失败，请重试",
     errUpload: "图片上传失败，请检查网络",
     errScript: "脚本生成失败，请检查 LLM 配置",
+    errIngest: "没能从该链接抓取到商品信息，请检查链接或改用「上传商品图」",
     errGeneric: "出错了，请重试",
     // 示例
     examplesLabel: "没素材，先试试",
@@ -75,7 +82,12 @@ export const start: NamespaceMessages = {
     sub: "Upload a product photo or just type a topic. AI writes the script, fills the visuals, adds voiceover, and renders a vertical short — start now, add a key only when AI kicks in.",
     // 模式切换
     tabUpload: "Upload product photo",
+    tabLink: "Product link",
     tabTopic: "One-sentence video",
+    // 商品链接模式
+    linkPlaceholder: "Paste a product URL (Taobao / JD / Amazon / Shopify / any store…)",
+    linkHint: "Auto-grabs the title, price and images, creates the project and writes the script",
+    linkProductFallback: "Imported product",
     // 上传模式
     dropTitle: "Drop a product photo, or click to upload",
     dropSub: "JPG / PNG, up to 5 · No assets? Pick an example below",
@@ -108,11 +120,13 @@ export const start: NamespaceMessages = {
     stageCreate: "Creating project…",
     stageUpload: "Uploading product photos…",
     stageScript: "AI is writing the script…",
+    stageIngest: "Fetching product info…",
     // 错误提示
     errTopicScript: "Generation failed. Check your LLM settings",
     errProjectCreate: "Failed to create project. Please try again",
     errUpload: "Image upload failed. Check your network",
     errScript: "Script generation failed. Check your LLM settings",
+    errIngest: "Couldn't fetch product info from that link — check the URL or use “Upload product photo”",
     errGeneric: "Something went wrong. Please try again",
     // 示例
     examplesLabel: "No assets? Try one",

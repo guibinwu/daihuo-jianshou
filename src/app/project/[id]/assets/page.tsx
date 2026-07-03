@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { LuArrowLeft, LuZap, LuCheck, LuCircleX, LuImage, LuArrowRight, LuLoaderCircle, LuTriangleAlert } from "react-icons/lu";
+import { LuArrowLeft, LuZap, LuCheck, LuCircleX, LuImage, LuArrowRight, LuLoaderCircle, LuTriangleAlert, LuUpload } from "react-icons/lu";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -150,6 +150,44 @@ export default function AssetsPage() {
 
   // one-click "auto-fill visuals (free stock)": pull visuals from the free stock library (keyless Openverse images) shot-by-shot using search terms.
   // no image generation key required — this is the key step in the zero-barrier "one-sentence topic video" closed loop.
+  // per-shot local image/video upload: a single hidden input, click sets the target shot; onChange uploads
+  // then persists as that shot's asset. This unblocks user_upload shots (which had no action = dead end)
+  // and lets users replace an AI/stock visual with their own footage.
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const pendingUploadShot = useRef<number | null>(null);
+  const [uploadingShot, setUploadingShot] = useState<number | null>(null);
+  const openUploadFor = (shotId: number) => {
+    pendingUploadShot.current = shotId;
+    uploadInputRef.current?.click();
+  };
+  const onUploadFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const shotId = pendingUploadShot.current;
+    e.target.value = ""; // allow re-picking the same file later
+    if (!file || shotId == null) return;
+    setUploadingShot(shotId);
+    try {
+      const fd = new FormData();
+      fd.append("files", file);
+      fd.append("projectId", id);
+      const up = await fetch("/api/upload", { method: "POST", body: fd });
+      const upData = await up.json().catch(() => ({}));
+      if (!up.ok || !upData.paths?.[0]) throw new Error(upData.error || t("uploadFailed"));
+      const res = await fetch(`/api/project/${id}/assets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shotId, sourceUrl: upData.paths[0], type: "user_upload" }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || t("uploadFailed")); }
+      await reloadAssets();
+    } catch (err) {
+      setStockMsg(err instanceof Error ? err.message : t("uploadFailed"));
+    } finally {
+      setUploadingShot(null);
+      pendingUploadShot.current = null;
+    }
+  };
+
   const fillStock = useCallback(async () => {
     if (isFillingStock) return;
     setIsFillingStock(true);
@@ -440,12 +478,18 @@ export default function AssetsPage() {
               <span className="text-lg font-bold tracking-tight">ClipForge</span>
             </Link>
             <span className="text-muted-foreground">/</span>
-            <span className="text-sm text-muted-foreground truncate max-w-[40vw] sm:max-w-xs">{projectName || t("untitledProject")}</span>
+            <span className="text-sm text-muted-foreground truncate max-w-[20vw] sm:max-w-xs">{projectName || t("untitledProject")}</span>
           </div>
 
           {/* step progress */}
           <div className="flex items-center gap-1">
             <LanguageToggle className="mr-1" />
+            {/* mobile: full step pills don't fit, show a compact "current step / total" badge instead */}
+            <div className="sm:hidden flex h-7 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[10px]">2</span>
+              {t("stepAssets")}
+              <span className="text-primary-foreground/60">2/4</span>
+            </div>
             {/* step pills don't fit on narrow screens, hidden on mobile (progress display only, not navigation) */}
             <div className="hidden sm:flex items-center gap-1">
             {[t("stepScript"), t("stepAssets"), t("stepVideo"), t("stepExport")].map((step, i) => (
@@ -464,16 +508,25 @@ export default function AssetsPage() {
         </div>
       </header>
 
+      {/* single hidden input reused for every per-shot upload; target shot tracked in pendingUploadShot */}
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={onUploadFileChange}
+      />
+
       <main className="mx-auto max-w-4xl px-6 py-8">
-        {/* action bar */}
-        <div className="flex items-center justify-between mb-6">
+        {/* action bar: wraps on mobile so the button cluster never overflows the viewport */}
+        <div className="flex flex-wrap items-center justify-between gap-y-3 mb-6">
           <div>
             <h2 className="text-lg font-semibold">{t("title")}</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
               {loading ? tc("loading") : t("assetsReady", { done: doneCount, total: assets.length })}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {productImages.length > 0 && (
               <button
                 type="button"
@@ -681,6 +734,22 @@ export default function AssetsPage() {
                                 : asset.status === "failed"
                                 ? tc("retry")
                                 : t("btnGenerate")}
+                            </Button>
+                          )}
+                          {/* upload own image: unblocks user_upload shots (no other action) and lets any non-product shot use the creator's own photo instead of AI/stock */}
+                          {asset.visualSource !== "product_image" && (
+                            <Button
+                              variant={asset.visualSource === "user_upload" && asset.status !== "done" ? "outline" : "ghost"}
+                              size="sm"
+                              className="text-xs w-24 text-muted-foreground hover:text-primary"
+                              disabled={uploadingShot === asset.shotId}
+                              onClick={() => openUploadFor(asset.shotId)}
+                            >
+                              {uploadingShot === asset.shotId ? (
+                                <LuLoaderCircle className="animate-spin h-3.5 w-3.5" />
+                              ) : (
+                                <><LuUpload className="w-3 h-3 mr-1" />{asset.status === "done" ? t("btnReplaceUpload") : t("btnUpload")}</>
+                              )}
                             </Button>
                           )}
                           {/* convert to motion shot: existing image asset → image-to-video (real camera moves). Product close-up shots are best kept static to avoid distortion */}
