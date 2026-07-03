@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { LuCheck, LuCircleCheck, LuFilm, LuDownload, LuLink2, LuFileText, LuPlus, LuHouse, LuSmartphone, LuShuffle, LuLoaderCircle } from "react-icons/lu";
+import { LuCheck, LuCircleCheck, LuFilm, LuDownload, LuLink2, LuFileText, LuPlus, LuHouse, LuSmartphone, LuShuffle, LuLoaderCircle, LuSparkles, LuImage, LuLayoutGrid, LuQrCode, LuScanLine, LuLanguages } from "react-icons/lu";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,6 +121,68 @@ export default function ExportPage() {
       }
     }
     setAbRunning(false);
+  };
+
+  // ---- "More outputs": surface the monetization/localization tools that were previously CLI/MCP-only
+  // (cover / Xiaohongshu carousel / shop QR / scan-to-buy end-card / multi-language dub). Each calls an
+  // existing route and shows its artifact; no new backend. ----
+  type ToolState = { loading?: boolean; error?: string; images?: string[]; video?: string; note?: string; shopLink?: string };
+  const [more, setMore] = useState<Record<string, ToolState>>({});
+  const setTool = (k: string, v: ToolState) => setMore((m) => ({ ...m, [k]: { ...m[k], ...v } }));
+  const [coverTitle, setCoverTitle] = useState("");
+  const [dubLang, setDubLang] = useState("en");
+  const hasShopUrl = !!productMeta?.shopUrl;
+
+  const genCover = async () => {
+    const title = (coverTitle || productMeta?.productName || projectName).trim();
+    if (!title) { setTool("cover", { error: t("moreCoverNeedTitle") }); return; }
+    setTool("cover", { loading: true, error: undefined, images: undefined });
+    try {
+      const r = await fetch(`/api/project/${id}/cover`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t("moreFailed"));
+      setTool("cover", { loading: false, images: [d.cover] });
+    } catch (e) { setTool("cover", { loading: false, error: e instanceof Error ? e.message : t("moreFailed") }); }
+  };
+  const genCarousel = async () => {
+    setTool("carousel", { loading: true, error: undefined, images: undefined });
+    try {
+      const r = await fetch(`/api/project/${id}/carousel`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: "night" }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t("moreFailed"));
+      setTool("carousel", { loading: false, images: Array.isArray(d.cards) ? d.cards : [] });
+    } catch (e) { setTool("carousel", { loading: false, error: e instanceof Error ? e.message : t("moreFailed") }); }
+  };
+  const genQr = async () => {
+    setTool("qr", { loading: true, error: undefined, images: undefined });
+    try {
+      const r = await fetch(`/api/project/${id}/shop-qr`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t("moreFailed"));
+      setTool("qr", { loading: false, images: [d.qr], shopLink: d.shopLink });
+    } catch (e) { setTool("qr", { loading: false, error: e instanceof Error ? e.message : t("moreFailed") }); }
+  };
+  const genEndCard = async () => {
+    setTool("endcard", { loading: true, error: undefined, video: undefined });
+    try {
+      const r = await fetch(`/api/project/${id}/end-card`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t("moreFailed"));
+      setTool("endcard", { loading: false, video: d.video, shopLink: d.shopLink });
+    } catch (e) { setTool("endcard", { loading: false, error: e instanceof Error ? e.message : t("moreFailed") }); }
+  };
+  const genDub = async () => {
+    if (!llm.apiKey) { setTool("dub", { error: t("moreDubNeedLlm") }); return; }
+    setTool("dub", { loading: true, error: undefined, note: undefined });
+    try {
+      const r = await fetch(`/api/project/${id}/dub`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetLang: dubLang, llmConfig: { baseUrl: llm.baseUrl, apiKey: llm.apiKey, model: llm.model } }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t("moreFailed"));
+      setTool("dub", { loading: false, note: t("moreDubDone", { voice: d.recommendedVoice || "" }) });
+    } catch (e) { setTool("dub", { loading: false, error: e instanceof Error ? e.message : t("moreFailed") }); }
   };
 
   const generatePublish = async () => {
@@ -566,6 +628,114 @@ export default function ExportPage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* more outputs: monetization + localization tools (cover / carousel / shop QR / end-card / dub) */}
+        <Card className="glass-card mb-6">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <LuSparkles className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold">{t("moreTitle")}</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">{t("moreDesc")}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* cover */}
+              <div className="rounded-lg border border-border/50 bg-muted/10 p-3">
+                <div className="flex items-center gap-2 mb-2"><LuImage className="w-3.5 h-3.5 text-primary" /><span className="text-xs font-medium">{t("moreCover")}</span></div>
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 min-w-0 rounded-md border border-border/50 bg-background/50 px-2 py-1 text-xs"
+                    placeholder={productMeta?.productName || projectName || t("moreCoverTitlePlaceholder")}
+                    value={coverTitle}
+                    onChange={(e) => setCoverTitle(e.target.value)}
+                  />
+                  <Button size="sm" variant="outline" className="text-xs h-7 shrink-0" disabled={more.cover?.loading || !composition?.url} onClick={genCover}>
+                    {more.cover?.loading ? <LuLoaderCircle className="w-3.5 h-3.5 animate-spin" /> : t("moreGenerate")}
+                  </Button>
+                </div>
+                {more.cover?.error && <p className="mt-1.5 text-[11px] text-destructive">{more.cover.error}</p>}
+                {more.cover?.images?.[0] && (
+                  <a href={`${more.cover.images[0]}?download=1`} download className="mt-2 block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={more.cover.images[0]} alt="cover" className="w-24 rounded-md border border-border/30" />
+                  </a>
+                )}
+              </div>
+              {/* xiaohongshu carousel */}
+              <div className="rounded-lg border border-border/50 bg-muted/10 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2"><LuLayoutGrid className="w-3.5 h-3.5 text-primary" /><span className="text-xs font-medium">{t("moreCarousel")}</span></div>
+                  <Button size="sm" variant="outline" className="text-xs h-7" disabled={more.carousel?.loading} onClick={genCarousel}>
+                    {more.carousel?.loading ? <LuLoaderCircle className="w-3.5 h-3.5 animate-spin" /> : t("moreGenerate")}
+                  </Button>
+                </div>
+                {more.carousel?.error && <p className="text-[11px] text-destructive">{more.carousel.error}</p>}
+                {more.carousel?.images && more.carousel.images.length > 0 && (
+                  <div className="flex gap-1.5 overflow-x-auto pb-1">
+                    {more.carousel.images.map((img, i) => (
+                      <a key={i} href={`${img}?download=1`} download className="shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img} alt={`card ${i}`} className="h-20 rounded-md border border-border/30" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* shop QR */}
+              <div className="rounded-lg border border-border/50 bg-muted/10 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2"><LuQrCode className="w-3.5 h-3.5 text-primary" /><span className="text-xs font-medium">{t("moreQr")}</span></div>
+                  <Button size="sm" variant="outline" className="text-xs h-7" disabled={more.qr?.loading || !hasShopUrl} onClick={genQr}>
+                    {more.qr?.loading ? <LuLoaderCircle className="w-3.5 h-3.5 animate-spin" /> : t("moreGenerate")}
+                  </Button>
+                </div>
+                {!hasShopUrl && <p className="text-[11px] text-muted-foreground">{t("moreNeedShopUrl")}</p>}
+                {more.qr?.error && <p className="text-[11px] text-destructive">{more.qr.error}</p>}
+                {more.qr?.images?.[0] && (
+                  <a href={`${more.qr.images[0]}?download=1`} download className="mt-1 block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={more.qr.images[0]} alt="qr" className="w-20 rounded-md border border-border/30 bg-white" />
+                  </a>
+                )}
+              </div>
+              {/* scan-to-buy end-card */}
+              <div className="rounded-lg border border-border/50 bg-muted/10 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2"><LuScanLine className="w-3.5 h-3.5 text-primary" /><span className="text-xs font-medium">{t("moreEndCard")}</span></div>
+                  <Button size="sm" variant="outline" className="text-xs h-7" disabled={more.endcard?.loading || !hasShopUrl || !composition?.url} onClick={genEndCard}>
+                    {more.endcard?.loading ? <LuLoaderCircle className="w-3.5 h-3.5 animate-spin" /> : t("moreGenerate")}
+                  </Button>
+                </div>
+                {!hasShopUrl && <p className="text-[11px] text-muted-foreground">{t("moreNeedShopUrl")}</p>}
+                {more.endcard?.error && <p className="text-[11px] text-destructive">{more.endcard.error}</p>}
+                {more.endcard?.video && (
+                  <a href={`${more.endcard.video}?download=1`} download>
+                    <Button size="sm" variant="outline" className="text-xs h-7 mt-1"><LuDownload className="w-3 h-3 mr-1" />{t("moreEndCardDownload")}</Button>
+                  </a>
+                )}
+              </div>
+              {/* multi-language dub */}
+              <div className="rounded-lg border border-border/50 bg-muted/10 p-3 md:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2"><LuLanguages className="w-3.5 h-3.5 text-primary" /><span className="text-xs font-medium">{t("moreDub")}</span></div>
+                  <div className="flex items-center gap-2">
+                    <select className="rounded-md border border-border/50 bg-background/50 px-2 py-1 text-xs" value={dubLang} onChange={(e) => setDubLang(e.target.value)}>
+                      <option value="en">English</option>
+                      <option value="ja">日本語</option>
+                      <option value="ko">한국어</option>
+                      <option value="es">Español</option>
+                    </select>
+                    <Button size="sm" variant="outline" className="text-xs h-7" disabled={more.dub?.loading} onClick={genDub}>
+                      {more.dub?.loading ? <LuLoaderCircle className="w-3.5 h-3.5 animate-spin" /> : t("moreGenerate")}
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">{t("moreDubHint")}</p>
+                {more.dub?.error && <p className="text-[11px] text-destructive mt-1">{more.dub.error}</p>}
+                {more.dub?.note && <p className="text-[11px] text-emerald-500 mt-1">{more.dub.note}</p>}
+              </div>
+            </div>
           </CardContent>
         </Card>
 
