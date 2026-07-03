@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { LuWand, LuClock, LuImage, LuArrowRight, LuBookmarkPlus, LuLoaderCircle, LuTriangleAlert, LuCircleCheck, LuCircleX } from "react-icons/lu";
+import { LuWand, LuClock, LuImage, LuArrowRight, LuBookmarkPlus, LuLoaderCircle, LuTriangleAlert, LuCircleCheck, LuCircleX, LuPencil } from "react-icons/lu";
 import { checkScriptCompliance } from "@/lib/ad-compliance";
 import { checkPublishReadiness } from "@/lib/publish-readiness";
 import Link from "next/link";
@@ -271,6 +271,65 @@ export default function ScriptPage() {
     setTimeout(() => setSavedTip(false), 3000);
   };
 
+  // ---- selection persistence: switching the active variant must be written to the DB, otherwise
+  // downstream steps (assets/video/export) read `selected` from the DB and use a different script ----
+  const [selectionTip, setSelectionTip] = useState(false);
+  const persistSelection = async (index: number) => {
+    setSelectedScript(index);
+    const target = scripts[index];
+    if (!target) return;
+    try {
+      await fetch(`/api/project/${id}/scripts`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selectedScriptId: target.id }),
+      });
+      setSelectionTip(true);
+      setTimeout(() => setSelectionTip(false), 1500);
+    } catch {
+      /* selection is best-effort; the UI already reflects the choice locally */
+    }
+  };
+
+  // ---- per-shot inline editing: only voiceover/description text (structure/timing untouched) ----
+  const [editingShotId, setEditingShotId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<{ voiceover: string; description: string }>({ voiceover: "", description: "" });
+  const [editStatus, setEditStatus] = useState<"" | "saving" | "saved" | "failed">("");
+  const startEditShot = (shot: Shot) => {
+    setEditingShotId(shot.shotId);
+    setEditDraft({ voiceover: shot.voiceover ?? "", description: shot.description ?? "" });
+    setEditStatus("");
+  };
+  const cancelEditShot = () => {
+    setEditingShotId(null);
+    setEditStatus("");
+  };
+  const saveEditShot = async (shotId: number) => {
+    if (!currentScript) return;
+    setEditStatus("saving");
+    // optimistic local update so the timeline reflects the edit immediately
+    setScripts((prev) =>
+      prev.map((s) =>
+        s.id === currentScript.id
+          ? { ...s, shots: s.shots.map((sh) => (sh.shotId === shotId ? { ...sh, voiceover: editDraft.voiceover.trim(), description: editDraft.description.trim() } : sh)) }
+          : s
+      )
+    );
+    try {
+      const res = await fetch(`/api/project/${id}/scripts`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scriptId: currentScript.id, shotTexts: [{ shotId, voiceover: editDraft.voiceover, description: editDraft.description }] }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      setEditStatus("saved");
+      setEditingShotId(null);
+      setTimeout(() => setEditStatus(""), 1500);
+    } catch {
+      setEditStatus("failed");
+    }
+  };
+
   // top navigation bar (shared by empty state and normal state)
   const headerBar = (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -406,6 +465,9 @@ export default function ScriptPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold">{t("scriptOptions")}</h2>
               <div className="flex items-center gap-2">
+                {selectionTip && (
+                  <span className="text-xs text-green-400 animate-in fade-in">{t("selectionSaved")}</span>
+                )}
                 {savedTip && (
                   <span className="text-xs text-green-400 animate-in fade-in">{t("savedAsTemplate")}</span>
                 )}
@@ -425,7 +487,7 @@ export default function ScriptPage() {
                 <Card
                   key={script.id}
                   className={`cursor-pointer transition-all ${selectedScript === index ? "ring-2 ring-primary neon-glow" : "glass-card card-hover"}`}
-                  onClick={() => setSelectedScript(index)}
+                  onClick={() => persistSelection(index)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
@@ -584,6 +646,16 @@ export default function ScriptPage() {
                                     <span className="flex items-center gap-1">
                                       {shot.visualSource === "product_image" ? t("visualProductImage") : shot.visualSource === "ai_generate" ? t("visualAiGenerate") : t("visualUserUpload")}
                                     </span>
+                                    {editingShotId !== shot.shotId && (
+                                      <button
+                                        type="button"
+                                        className="flex items-center gap-1 text-primary hover:underline"
+                                        onClick={() => startEditShot(shot)}
+                                      >
+                                        <LuPencil className="w-3 h-3" />
+                                        {t("editShot")}
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                                 {/* visual preview: product image shots show the uploaded product photo immediately so users see a visual right away; AI shots have no image yet at this stage */}
@@ -602,13 +674,39 @@ export default function ScriptPage() {
                                   )}
                                 </div>
                               </div>
-                              {/* voiceover copy */}
-                              {shot.voiceover && (
-                                <div className="mt-3 p-2.5 bg-muted/30 rounded-md">
-                                  <p className="text-xs text-muted-foreground leading-relaxed">
-                                    🎙 {shot.voiceover}
-                                  </p>
+                              {/* voiceover copy — inline editable */}
+                              {editingShotId === shot.shotId ? (
+                                <div className="mt-3 space-y-2 rounded-md border border-primary/30 bg-primary/5 p-2.5">
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">{t("editVoiceoverLabel")}</label>
+                                    <Textarea
+                                      className="mt-1 min-h-[64px] bg-background/50 text-xs leading-relaxed"
+                                      value={editDraft.voiceover}
+                                      onChange={(e) => setEditDraft((d) => ({ ...d, voiceover: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">{t("editDescriptionLabel")}</label>
+                                    <Textarea
+                                      className="mt-1 min-h-[48px] bg-background/50 text-xs leading-relaxed"
+                                      value={editDraft.description}
+                                      onChange={(e) => setEditDraft((d) => ({ ...d, description: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-end gap-2">
+                                    {editStatus === "failed" && <span className="text-[10px] text-red-400 mr-auto">{t("editSaveFailed")}</span>}
+                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={cancelEditShot}>{tc("cancel")}</Button>
+                                    <Button size="sm" className="h-7 text-xs brand-gradient text-white" disabled={editStatus === "saving"} onClick={() => saveEditShot(shot.shotId)}>{tc("save")}</Button>
+                                  </div>
                                 </div>
+                              ) : (
+                                shot.voiceover && (
+                                  <div className="mt-3 p-2.5 bg-muted/30 rounded-md">
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                      🎙 {shot.voiceover}
+                                    </p>
+                                  </div>
+                                )
                               )}
                             </div>
                           </div>
@@ -623,10 +721,14 @@ export default function ScriptPage() {
                 <Card className="glass-card">
                   <CardContent className="p-6 space-y-4">
                     <h3 className="font-medium text-sm mb-2">{t("fullVoiceover")}</h3>
+                    {/* read-only preview: per-shot editing happens in the timeline tab (avoids the old
+                        silent-discard where typing here was never saved) */}
                     <Textarea
-                      className="min-h-[300px] bg-background/50 text-sm leading-relaxed"
-                      defaultValue={currentScript?.shots.map((s) => s.voiceover).filter(Boolean).join("\n\n")}
+                      readOnly
+                      className="min-h-[300px] bg-background/50 text-sm leading-relaxed cursor-default"
+                      value={currentScript?.shots.map((s) => s.voiceover).filter(Boolean).join("\n\n") ?? ""}
                     />
+                    <p className="text-[11px] text-muted-foreground">{t("textReadOnlyHint")}</p>
                     <p className="text-xs text-muted-foreground">
                       {t("statsChars", { n: currentScript?.shots.reduce((sum, s) => sum + (s.voiceover?.length || 0), 0) ?? 0 })} ·
                       {t("statsDuration", { n: currentScript?.totalDuration ?? 0 })} ·

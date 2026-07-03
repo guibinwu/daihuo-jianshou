@@ -64,6 +64,14 @@ export const script: NamespaceMessages = {
     statsChars: "总字数：{n} 字",
     statsDuration: "预计时长：{n}s",
     statsSpeed: "语速：约 {n} 字/秒",
+    textReadOnlyHint: "此处为全文预览。要修改某句口播或画面描述，请在「分镜时间线」里对应分镜点「编辑」。",
+    // 分镜行内编辑
+    editShot: "编辑",
+    editVoiceoverLabel: "口播文案",
+    editDescriptionLabel: "画面描述",
+    editSaved: "已保存",
+    editSaveFailed: "保存失败，请重试",
+    selectionSaved: "已选用该方案",
     // 保存模板弹窗
     saveTemplateTitle: "保存为模板",
     saveTemplateDesc: "保存当前脚本结构为模板，下次可直接套用到其他商品",
@@ -131,6 +139,14 @@ export const script: NamespaceMessages = {
     statsChars: "Characters: {n}",
     statsDuration: "Est. duration: {n}s",
     statsSpeed: "Pace: ~{n} chars/s",
+    textReadOnlyHint: "This is a full-text preview. To edit a line or a shot description, use Edit on that shot in the timeline.",
+    // 分镜行内编辑
+    editShot: "Edit",
+    editVoiceoverLabel: "Voiceover",
+    editDescriptionLabel: "Visual description",
+    editSaved: "Saved",
+    editSaveFailed: "Save failed, please retry",
+    selectionSaved: "Variant selected",
     // 保存模板弹窗
     saveTemplateTitle: "Save as template",
     saveTemplateDesc: "Save this script structure as a template to reuse on other products",
