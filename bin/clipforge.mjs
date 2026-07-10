@@ -362,6 +362,19 @@ async function cmdEndcard(flags) {
   return { ok: true, projectId, video: res.video, shopLink: res.shopLink };
 }
 
+// QC: run the automated quality check over the latest composed video (black frames / silence / loudness / streams)
+async function cmdQc(flags) {
+  const projectId = String(flags.project || "").trim();
+  if (!projectId) throw new Error("--project 不能为空");
+  const body = {};
+  if (typeof flags.composition === "string" && flags.composition.trim()) body.compositionId = flags.composition.trim();
+  const res = await api(`/api/project/${projectId}/qc`, { method: "POST", body });
+  const icon = { ok: "✓", warn: "⚠", fail: "✗" };
+  for (const c of res.checks || []) step(`${icon[c.level] || "·"} ${c.message?.zh || c.id}`);
+  step(res.status === "ok" ? "质检通过" : res.status === "warn" ? "质检有警告，建议人工复核" : "质检不通过，请勿直接发布");
+  return { ok: res.status !== "fail", projectId, status: res.status, checks: res.checks };
+}
+
 // GIF preview: turn a slice of the latest composed video into a shareable looping GIF
 async function cmdPreview(flags) {
   const projectId = String(flags.project || "").trim();
@@ -451,6 +464,7 @@ const HELP = `ClipForge CLI · 命令行一句话出片
   clipforge cover --project <id> --title "手冲咖啡 三步搞定" [--position center|lower|upper]   生成封面图
   clipforge qr --project <id> [--platform douyin --url <shopUrl> --size 512]   生成商品「扫码购买」二维码(UTM追踪)
   clipforge endcard --project <id> [--platform douyin --seconds 3 --cta "扫码购买"]   把扫码购买二维码烧进成片片尾(需先合成)
+  clipforge qc --project <id> [--composition <id>]   成片质检(黑屏/静音/响度/流完整性,批量出片前把关)
   clipforge preview --project <id> [--start 0 --duration 4 --width 360]   生成预览 GIF
   clipforge carousel --project <id> [--theme night|warm|mint|mono|rose]   生成小红书图文卡片(标题+逐条要点)
   clipforge get --project <id>  查最新成片地址
@@ -463,7 +477,7 @@ const HELP = `ClipForge CLI · 命令行一句话出片
 
 进度打印到 stderr，最终结果（含 videoUrl）打印到 stdout，便于管道取值。`;
 
-const COMMANDS = { create: cmdCreate, product: cmdProduct, import: cmdImport, dub: cmdDub, compose: cmdCompose, cover: cmdCover, qr: cmdQr, endcard: cmdEndcard, preview: cmdPreview, carousel: cmdCarousel, list: cmdList, voices: cmdVoices, get: cmdGet, trends: cmdTrends };
+const COMMANDS = { create: cmdCreate, product: cmdProduct, import: cmdImport, dub: cmdDub, compose: cmdCompose, cover: cmdCover, qr: cmdQr, endcard: cmdEndcard, qc: cmdQc, preview: cmdPreview, carousel: cmdCarousel, list: cmdList, voices: cmdVoices, get: cmdGet, trends: cmdTrends };
 
 async function main() {
   const { _, flags } = parseArgs(process.argv.slice(2));

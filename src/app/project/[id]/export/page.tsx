@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { LuCheck, LuCircleCheck, LuFilm, LuDownload, LuLink2, LuFileText, LuPlus, LuHouse, LuSmartphone, LuShuffle, LuLoaderCircle, LuSparkles, LuImage, LuLayoutGrid, LuQrCode, LuScanLine, LuLanguages } from "react-icons/lu";
+import { LuCheck, LuCircleCheck, LuFilm, LuDownload, LuLink2, LuFileText, LuPlus, LuHouse, LuSmartphone, LuShuffle, LuLoaderCircle, LuSparkles, LuImage, LuLayoutGrid, LuQrCode, LuScanLine, LuLanguages, LuShieldCheck, LuTriangleAlert, LuCircleX } from "react-icons/lu";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -171,6 +171,19 @@ export default function ExportPage() {
       setTool("endcard", { loading: false, video: d.video, shopLink: d.shopLink });
     } catch (e) { setTool("endcard", { loading: false, error: e instanceof Error ? e.message : t("moreFailed") }); }
   };
+  // composed-video quality check: black frames / silence / loudness / streams (bilingual report from the route)
+  type QcUiCheck = { id: string; level: "ok" | "warn" | "fail"; message: { zh: string; en: string } };
+  const [qc, setQc] = useState<{ loading?: boolean; error?: string; status?: "ok" | "warn" | "fail"; checks?: QcUiCheck[] }>({});
+  const runQualityCheck = async () => {
+    setQc({ loading: true });
+    try {
+      const r = await fetch(`/api/project/${id}/qc`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || t("moreFailed"));
+      setQc({ loading: false, status: d.status, checks: Array.isArray(d.checks) ? d.checks : [] });
+    } catch (e) { setQc({ loading: false, error: e instanceof Error ? e.message : t("moreFailed") }); }
+  };
+
   const genDub = async () => {
     if (!llm.apiKey) { setTool("dub", { error: t("moreDubNeedLlm") }); return; }
     setTool("dub", { loading: true, error: undefined, note: undefined });
@@ -713,6 +726,32 @@ export default function ExportPage() {
                   <a href={`${more.endcard.video}?download=1`} download>
                     <Button size="sm" variant="outline" className="text-xs h-7 mt-1"><LuDownload className="w-3 h-3 mr-1" />{t("moreEndCardDownload")}</Button>
                   </a>
+                )}
+              </div>
+              {/* composed-video quality check */}
+              <div className="rounded-lg border border-border/50 bg-muted/10 p-3 md:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2"><LuShieldCheck className="w-3.5 h-3.5 text-primary" /><span className="text-xs font-medium">{t("qcTitle")}</span></div>
+                  <Button size="sm" variant="outline" className="text-xs h-7" disabled={qc.loading || !composition?.url} onClick={runQualityCheck}>
+                    {qc.loading ? <LuLoaderCircle className="w-3.5 h-3.5 animate-spin" /> : t("qcRun")}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">{t("qcHint")}</p>
+                {qc.error && <p className="text-[11px] text-destructive mt-1">{qc.error}</p>}
+                {qc.status && (
+                  <p className={`text-[11px] mt-2 font-medium ${qc.status === "ok" ? "text-emerald-500" : qc.status === "warn" ? "text-amber-500" : "text-destructive"}`}>
+                    {qc.status === "ok" ? t("qcPass") : qc.status === "warn" ? t("qcWarn") : t("qcFail")}
+                  </p>
+                )}
+                {qc.checks && qc.checks.length > 0 && (
+                  <ul className="mt-1.5 space-y-1">
+                    {qc.checks.map((c) => (
+                      <li key={c.id} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                        {c.level === "ok" ? <LuCircleCheck className="w-3 h-3 mt-0.5 shrink-0 text-emerald-500" /> : c.level === "warn" ? <LuTriangleAlert className="w-3 h-3 mt-0.5 shrink-0 text-amber-500" /> : <LuCircleX className="w-3 h-3 mt-0.5 shrink-0 text-destructive" />}
+                        <span>{locale === "en" ? c.message.en : c.message.zh}</span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
               {/* multi-language dub */}

@@ -60,6 +60,13 @@ export const exportPage: NamespaceMessages = {
     moreDubHint: "把当前脚本翻成目标语种并存为新脚本版本，回到「视频」步骤用推荐音色重新合成即可出海外版（需配置 LLM Key）。",
     moreDubNeedLlm: "译制需要 LLM，请先在设置里配置 Key",
     moreDubDone: "已生成译制脚本，推荐音色：{voice}，去「视频」重新合成",
+    // 成片质检
+    qcTitle: "成片质检",
+    qcRun: "运行质检",
+    qcHint: "发布前自动检查成片：黑屏、长静音、响度漂移、画面冻结、流完整性。批量出片必备把关。",
+    qcPass: "质检通过，可放心发布",
+    qcWarn: "质检有警告，建议人工复核",
+    qcFail: "质检不通过，请勿直接发布",
     // 多平台导出
     multiExportTitle: "多平台导出",
     multiExportDesc: "一键重编码为各平台比例（模糊填充，不裁掉字幕/贴片）",
@@ -157,6 +164,13 @@ export const exportPage: NamespaceMessages = {
     moreDubHint: "Translate the current script into the target language and save it as a new version; go back to the “Video” step and recompose with the recommended voice for the overseas cut (needs an LLM key).",
     moreDubNeedLlm: "Dubbing needs an LLM — configure a key in Settings first",
     moreDubDone: "Dubbed script created; recommended voice: {voice}. Recompose it in the “Video” step.",
+    // composed-video quality check
+    qcTitle: "Video quality check",
+    qcRun: "Run QC",
+    qcHint: "Automatically screen the finished video before publishing: black frames, long silence, loudness drift, frozen picture, stream integrity. A must-have gate for batch output.",
+    qcPass: "QC passed — safe to publish",
+    qcWarn: "QC has warnings — review before publishing",
+    qcFail: "QC failed — do not publish as-is",
     multiExportTitle: "Multi-platform export",
     multiExportDesc: "Re-encode to each platform's aspect ratio in one click (blurred fill, no cropping of subtitles/overlays)",
     ratioLabel: "Ratio: {ratio}",

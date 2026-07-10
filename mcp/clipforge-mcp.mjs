@@ -391,6 +391,19 @@ const TOOLS = [
     },
   },
   {
+    name: "clipforge_qc",
+    description:
+      "对某项目最新成片跑自动质检（后处理，不改合成管线）：流完整性/时长/分辨率校验 + 黑屏(blackdetect)/长静音(silencedetect)/响度漂移(EBU R128 对 -14 LUFS)/画面冻结检测，返回结构化双语报告（status: ok|warn|fail + 逐项 checks）。批量出片后发布前把关用：fail 的片子别直接发。需先合成过视频。不需要 LLM。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "项目 ID" },
+        compositionId: { type: "string", description: "指定要质检的合成 ID（不填则用最新一次合成）" },
+      },
+      required: ["projectId"],
+    },
+  },
+  {
     name: "clipforge_preview_gif",
     description:
       "从某项目最新成片切一小段转成循环 GIF 预览（分享 / 嵌入 / 列表 hover 用）。需先合成过视频。不需要 LLM。",
@@ -741,6 +754,16 @@ async function handleEndCard(args) {
   return ok({ ok: true, projectId, video: res.video ? `${BASE_URL}${res.video}` : null, shopLink: res.shopLink ?? null });
 }
 
+// Automated quality check over the latest composed video (streams / black / silence / loudness / freeze)
+async function handleQc(args) {
+  const projectId = String(args.projectId || "").trim();
+  if (!projectId) throw new Error("projectId 不能为空");
+  const body = {};
+  if (typeof args.compositionId === "string" && args.compositionId.trim()) body.compositionId = args.compositionId.trim();
+  const res = await api(`/api/project/${projectId}/qc`, { method: "POST", body });
+  return ok({ ok: res.status !== "fail", projectId, compositionId: res.compositionId ?? null, status: res.status, checks: res.checks ?? [] });
+}
+
 // GIF preview from the latest composed video
 async function handlePreviewGif(args) {
   const projectId = String(args.projectId || "").trim();
@@ -791,6 +814,7 @@ const HANDLERS = {
   clipforge_cover: handleCover,
   clipforge_shop_qr: handleShopQr,
   clipforge_end_card: handleEndCard,
+  clipforge_qc: handleQc,
   clipforge_preview_gif: handlePreviewGif,
   clipforge_export_subtitle: handleExportSubtitle,
   clipforge_carousel: handleCarousel,
