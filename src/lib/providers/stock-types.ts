@@ -41,6 +41,10 @@ export interface StockCandidate {
   durationSec?: number;
   /** Preview image URL */
   previewImage?: string;
+  /** Title / alt text from the source (feeds keyword + semantic matching; absent on some sources) */
+  title?: string;
+  /** Tag list from the source (feeds keyword + semantic matching) */
+  tags?: string[];
 }
 
 /** Stock source metadata (used by the frontend to display available sources and whether a key is required) */

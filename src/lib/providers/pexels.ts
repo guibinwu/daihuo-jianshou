@@ -118,7 +118,17 @@ export function toVideoCandidate(
     height: file.height,
     durationSec: video.duration,
     previewImage: video.image,
+    // Pexels videos carry no alt text; the detail-page slug describes the content ("…/video/woman-pouring-coffee-853789/")
+    title: pexelsSlugTitle(video.url),
   };
+}
+
+/** Extract a readable title from a Pexels detail-page URL slug (strips the trailing numeric id). */
+export function pexelsSlugTitle(url: string | undefined): string | undefined {
+  const slug = (url ?? "").split("/").filter(Boolean).pop() ?? "";
+  // strip the trailing numeric id; a purely numeric slug carries no descriptive words
+  const words = slug.replace(/-?\d+$/, "").split("-").filter(Boolean);
+  return words.length > 0 ? words.join(" ") : undefined;
 }
 
 /** Pick the best-sized image URL for the target orientation */
@@ -142,6 +152,7 @@ export function toPhotoCandidate(photo: PexelsPhoto, orientation: StockOrientati
     width: photo.width,
     height: photo.height,
     previewImage: photo.src?.tiny,
+    title: photo.alt || undefined,
   };
 }
 

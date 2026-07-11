@@ -187,7 +187,7 @@ async function cmdCreate(flags) {
   step(`配画面（${mediaType}，免费素材库）…`);
   const fill = await api(`/api/project/${projectId}/stock-fill`, {
     method: "POST",
-    body: { source: "all", mediaType, apiKeys: STOCK_KEYS },
+    body: { source: "all", mediaType, apiKeys: STOCK_KEYS, ...(LLM.baseUrl && LLM.model ? { llmConfig: LLM } : {}) },
   });
   if (!fill.filled) {
     throw new Error(
@@ -265,7 +265,7 @@ async function cmdProduct(flags) {
   step(`配画面（${mediaType}，商品图 + 免费素材库）…`);
   const fill = await api(`/api/project/${projectId}/stock-fill`, {
     method: "POST",
-    body: { source: "all", mediaType, apiKeys: STOCK_KEYS },
+    body: { source: "all", mediaType, apiKeys: STOCK_KEYS, ...(LLM.baseUrl && LLM.model ? { llmConfig: LLM } : {}) },
   });
   step(`画面就绪：${fill.filled ?? 0}/${fill.total ?? 0}`);
 
@@ -293,7 +293,7 @@ async function cmdCompose(flags) {
     step("自动配缺失画面…");
     await api(`/api/project/${projectId}/stock-fill`, {
       method: "POST",
-      body: { source: "all", mediaType: FOOTAGE_KINDS.includes(flags.footage) ? flags.footage : "auto", apiKeys: STOCK_KEYS },
+      body: { source: "all", mediaType: FOOTAGE_KINDS.includes(flags.footage) ? flags.footage : "auto", apiKeys: STOCK_KEYS, ...(LLM.baseUrl && LLM.model ? { llmConfig: LLM } : {}) },
     }).catch(() => {});
   }
   const body = composeBodyFromFlags(flags);

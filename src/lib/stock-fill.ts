@@ -3,6 +3,10 @@
  * using the shot's English search keywords, then download and persist it as stock_footage.
  * Reuses the multi-source stock engine + broadenQuery "always-has-results" fallback;
  * this is the core of the "script → auto-matched assets" pipeline.
+ *
+ * Split into search (searchShotCandidates) and persist (persistCandidate) phases so the
+ * semantic-rerank path can gather every shot's candidates first, pick with ONE batched LLM
+ * call, then persist — while fillShotStock keeps the original single-shot heuristic flow.
  */
 import { mkdir } from "fs/promises";
 import { join, basename } from "path";
@@ -24,14 +28,22 @@ export interface FillShotInput {
   usedIds?: Set<string>;
 }
 
-/**
- * Search, download, and persist one stock asset for a single shot.
- * Includes the "always-has-results" fallback (retries with broader queries when the original yields nothing).
- * Returns the persisted asset row on success, or null if nothing could be found.
- */
-export async function fillShotStock(input: FillShotInput): Promise<Record<string, unknown> | null> {
-  const { projectId, shotId, query, source, searchOpts, usedIds } = input;
+/** A stock search hit normalized for scoring: string id + orientation + image/video type. */
+export type ScoredStockCandidate = Awaited<ReturnType<typeof searchStock>>[number] & {
+  id: string;
+  orientation?: "portrait" | "landscape" | "square";
+  type: "image" | "video";
+};
 
+/**
+ * Search phase: query the stock engine (with the broadenQuery "always-has-results" fallback)
+ * and normalize hits for scoring. Returns [] when nothing matches even the broadest query.
+ */
+export async function searchShotCandidates(
+  query: string,
+  source: StockSourceId | "all",
+  searchOpts: StockSearchOptions
+): Promise<ScoredStockCandidate[]> {
   let candidates: Awaited<ReturnType<typeof searchStock>> = [];
   for (const q of [query, ...broadenQuery(query)]) {
     if (!q?.trim()) continue;
@@ -43,17 +55,21 @@ export async function fillShotStock(input: FillShotInput): Promise<Record<string
     }
     if (candidates.length > 0) break;
   }
-  if (candidates.length === 0) return null;
-
-  // Pick the best candidate: prefer portrait orientation + deduplicate across shots, instead of just taking the first result (the old logic often produced landscape clips or repeated the same image throughout)
-  const scored = candidates.map((cand) => ({
+  return candidates.map((cand) => ({
     ...cand,
     id: String(cand.id), // normalize to string so it can be stored in the usedIds dedup Set
     orientation: cand.width && cand.height ? orientationOf(cand.width, cand.height) : undefined,
     type: cand.mediaType === "video" ? ("video" as const) : ("image" as const),
   }));
-  const c = pickBestCandidate({ description: query }, scored, { preferPortrait: true, usedIds }) ?? scored[0];
-  usedIds?.add(c.id);
+}
+
+/** Persist phase: download the chosen candidate into the project's stock dir and insert the asset row. */
+export async function persistCandidate(
+  projectId: string,
+  shotId: number,
+  query: string,
+  c: ScoredStockCandidate
+): Promise<Record<string, unknown>> {
   const stockDir = join(getUploadsDir(), projectId, "stock");
   await mkdir(stockDir, { recursive: true });
   const base = `${c.source}_${c.id}_${Date.now()}_${shotId}`;
@@ -78,4 +94,21 @@ export async function fillShotStock(input: FillShotInput): Promise<Record<string
     .returning();
 
   return { ...row, mediaType: c.mediaType, attributionText: c.attributionText };
+}
+
+/**
+ * Search, download, and persist one stock asset for a single shot.
+ * Includes the "always-has-results" fallback (retries with broader queries when the original yields nothing).
+ * Returns the persisted asset row on success, or null if nothing could be found.
+ */
+export async function fillShotStock(input: FillShotInput): Promise<Record<string, unknown> | null> {
+  const { projectId, shotId, query, source, searchOpts, usedIds } = input;
+
+  const scored = await searchShotCandidates(query, source, searchOpts);
+  if (scored.length === 0) return null;
+
+  // Pick the best candidate: prefer portrait orientation + deduplicate across shots, instead of just taking the first result (the old logic often produced landscape clips or repeated the same image throughout)
+  const c = pickBestCandidate({ description: query }, scored, { preferPortrait: true, usedIds }) ?? scored[0];
+  usedIds?.add(c.id);
+  return persistCandidate(projectId, shotId, query, c);
 }

@@ -106,6 +106,8 @@ export function toWikimediaCandidate(page: CommonsPage, requested: StockMediaTyp
     height: ii.height,
     durationSec: ii.duration != null ? Math.round(ii.duration) : undefined,
     previewImage: ii.thumburl,
+    // "File:Pour over coffee.jpg" → "Pour over coffee" (feeds keyword/semantic matching)
+    title: page.title.replace(/^File:/, "").replace(/\.[a-z0-9]+$/i, ""),
   };
 }
 

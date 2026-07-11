@@ -326,7 +326,11 @@ export default function ScriptPage() {
       setAutoFinishStage(t("autoFinishAssets"));
       await fetch(`/api/project/${id}/stock-fill`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: "all", mediaType: "auto" }),
+        // llmConfig opt-in: semantic rerank picks the best-matching footage per shot (heuristic fallback inside the route)
+        body: JSON.stringify({
+          source: "all", mediaType: "auto",
+          ...(llm.baseUrl && llm.model ? { llmConfig: { baseUrl: llm.baseUrl, apiKey: llm.apiKey, model: llm.model } } : {}),
+        }),
       }).catch(() => {});
       // 2) compose (free Edge TTS)
       setAutoFinishStage(t("autoFinishComposing"));

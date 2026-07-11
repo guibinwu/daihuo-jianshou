@@ -51,7 +51,7 @@ export default function AssetsPage() {
   const t = useT("assets");
   const tc = useT("common");
   const { id } = useParams<{ id: string }>();
-  const { providers, defaultImageModel, defaultVideoModel, customModels, imageParams, videoParams } = useSettingsStore();
+  const { providers, defaultImageModel, defaultVideoModel, customModels, imageParams, videoParams, llm } = useSettingsStore();
 
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [productImages, setProductImages] = useState<string[]>([]);
@@ -197,7 +197,12 @@ export default function AssetsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // free sources are primarily Openverse images (video sources require a Pexels/Pixabay key, to be integrated in settings later)
-        body: JSON.stringify({ source: "all", mediaType: "image" }),
+        // llmConfig opt-in: semantic rerank picks the best-matching footage per shot (heuristic fallback inside the route)
+        body: JSON.stringify({
+          source: "all",
+          mediaType: "image",
+          ...(llm.baseUrl && llm.model ? { llmConfig: { baseUrl: llm.baseUrl, apiKey: llm.apiKey, model: llm.model } } : {}),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || t("stockFillFailed"));
@@ -208,7 +213,7 @@ export default function AssetsPage() {
     } finally {
       setIsFillingStock(false);
     }
-  }, [id, isFillingStock, reloadAssets, t]);
+  }, [id, isFillingStock, reloadAssets, t, llm.baseUrl, llm.apiKey, llm.model]);
 
   // resolve the provider for the default image model (locate provider by model from /api/ai/models aggregated results)
   useEffect(() => {

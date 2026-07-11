@@ -496,7 +496,7 @@ async function handleCreateVideo(args) {
   const mediaType = resolveMediaType(args.footage);
   const fill = await api(`/api/project/${projectId}/stock-fill`, {
     method: "POST",
-    body: { source: "all", mediaType, apiKeys: STOCK_KEYS },
+    body: { source: "all", mediaType, apiKeys: STOCK_KEYS, ...(LLM.baseUrl && LLM.model ? { llmConfig: LLM } : {}) },
   });
   // if no visuals were matched at all, don't force a compose (it would produce a blank/failed video) — return an actionable hint instead
   if (!fill.filled) {
@@ -604,7 +604,7 @@ async function handleCompose(args) {
   if (autoFill) {
     await api(`/api/project/${projectId}/stock-fill`, {
       method: "POST",
-      body: { source: "all", mediaType: resolveMediaType(args.footage), apiKeys: STOCK_KEYS },
+      body: { source: "all", mediaType: resolveMediaType(args.footage), apiKeys: STOCK_KEYS, ...(LLM.baseUrl && LLM.model ? { llmConfig: LLM } : {}) },
     }).catch(() => {}); // stock-fill failure does not block compose (project may already have assets)
   }
   const body = composeBody(args);

@@ -76,6 +76,7 @@ export function toOpenverseImageCandidate(img: OpenverseImage): StockCandidate |
     width: img.width,
     height: img.height,
     previewImage: img.thumbnail,
+    title: img.title,
   };
 }
 
@@ -100,6 +101,7 @@ export function toOpenverseAudioCandidate(a: OpenverseAudio): StockCandidate | n
     requiresAttribution: ccRequiresAttribution(a.license),
     durationSec: a.duration != null ? Math.round(a.duration / 1000) : undefined,
     previewImage: a.thumbnail,
+    title: a.title,
   };
 }
 

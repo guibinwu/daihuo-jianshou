@@ -69,6 +69,7 @@ async function searchNasa(query: string, mediaType: Extract<StockMediaType, "vid
         width: Number(link.width) || undefined,
         height: Number(link.height) || undefined,
         previewImage: typeof link.href === "string" ? link.href : undefined,
+        title: typeof d.title === "string" ? d.title : undefined,
       };
     }),
   );

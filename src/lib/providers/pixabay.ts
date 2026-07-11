@@ -100,6 +100,7 @@ export function toPixabayVideoCandidate(
     height: file.height,
     durationSec: hit.duration,
     previewImage: file.thumbnail,
+    tags: splitPixabayTags(hit.tags),
   };
 }
 
@@ -118,7 +119,14 @@ export function toPixabayImageCandidate(hit: PixabayImageHit): StockCandidate {
     width: hit.imageWidth,
     height: hit.imageHeight,
     previewImage: hit.webformatURL || hit.previewURL,
+    tags: splitPixabayTags(hit.tags),
   };
+}
+
+/** Pixabay tags arrive as one comma-separated string ("coffee, cup, morning") → string[] for matching */
+function splitPixabayTags(tags: string | undefined): string[] | undefined {
+  const list = (tags ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+  return list.length > 0 ? list : undefined;
 }
 
 // ==================== network functions ====================

@@ -81,6 +81,7 @@ async function searchArchive(query: string, mediaType: Extract<StockMediaType, "
         width: Number(file.width) || undefined,
         height: Number(file.height) || undefined,
         previewImage: `https://archive.org/services/img/${id}`,
+        title: typeof doc.title === "string" ? doc.title : Array.isArray(doc.title) ? String(doc.title[0]) : undefined,
       };
     }),
   );

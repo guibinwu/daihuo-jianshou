@@ -52,6 +52,8 @@ function toCandidate(absPath: string, name: string, mediaType: StockMediaType): 
     authorUrl: "",
     license: "本地/自有",
     requiresAttribution: false,
+    // filename (without extension) is the only text a local file carries for matching
+    title: name.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " "),
   };
 }
 
