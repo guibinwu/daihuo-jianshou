@@ -656,11 +656,11 @@ export default function SettingsPage() {
                       {([
                         { label: "Atlas Cloud", baseUrl: "https://api.atlascloud.ai/v1", model: "claude-sonnet-4-20250514", tip: t("presetAtlasTip") },
                         { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", model: "openai/gpt-4o", tip: t("presetOpenrouterTip") },
-                        { label: "DeepSeek", baseUrl: "https://api.deepseek.com", model: "deepseek-v3.2", tip: t("presetDeepseekTip") },
+                        { label: "DeepSeek", baseUrl: "https://api.deepseek.com", model: "deepseek-v4-flash", tip: t("presetDeepseekTip") },
                         { label: "Kimi", baseUrl: "https://api.moonshot.cn/v1", model: "kimi-k2.5", tip: t("presetKimiTip") },
                         { label: "智谱 GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4", model: "glm-5-turbo", tip: t("presetGlmTip") },
                         { label: "MiniMax", baseUrl: "https://api.minimax.chat/v1", model: "MiniMax-M2.7", tip: t("presetMinimaxTip") },
-                        { label: "豆包", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", model: "doubao-seed-2.0-pro", tip: t("presetDoubaoTip") },
+                        { label: "豆包", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", model: "doubao-seed-2-0-pro-260215", tip: t("presetDoubaoTip") },
                         { label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-5.4", tip: "" },
                         { label: "Ollama 本地", baseUrl: "http://localhost:11434/v1", model: "qwen2.5", tip: t("presetOllamaTip"), apiKey: "ollama" },
                         { label: "Pollinations", baseUrl: "https://text.pollinations.ai/openai", model: "openai-fast", tip: t("presetPollinationsTip"), apiKey: "pollinations" },

@@ -1,6 +1,6 @@
 // After build, fill in the standalone self-contained assets (next build's standalone omits static/public by default),
 // copy migration SQL, and replace the better-sqlite3 copy inside standalone with the Electron ABI prebuilt binary.
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
 import { createRequire } from "module";
 import { join } from "path";
@@ -81,7 +81,40 @@ async function rebuildBetterSqlite3ForElectron() {
 
   const node = join(bsDir, "build", "Release", "better_sqlite3.node");
   if (!existsSync(node)) throw new Error("解包后未见 better_sqlite3.node，Electron ABI 重建失败");
-  console.log("✓ standalone better-sqlite3 已切到 Electron ABI（打包 App 的 DB 路由可用）");
+
+  // 关键：Next 构建会把 serverExternalPackages 的原生包再拷一份到 standalone/.next/node_modules/<包名>-<hash>/，
+  // 运行时优先加载的是这一份而不是顶层 node_modules 那份——只换顶层会导致打包 App 里
+  // 所有 DB 路由 NODE_MODULE_VERSION 不匹配（ERR_DLOPEN_FAILED）→ 500（issue #12）。
+  // 注意平台差异：mac 上这份副本是硬链接的真实目录；Windows 上 standalone/.next/node_modules 是
+  // junction（目录符号链接），泛化的"跳过符号链接"式扫描会漏掉它，而 electron-builder 的 robocopy
+  // 会跟随 junction 把 Node ABI 的旧二进制实体化进安装包。所以这里显式进入该目录（readdirSync 天然
+  // 穿透 junction），对每个 better-sqlite3* 副本先解析真实路径、删旧文件再拷入 Electron ABI 二进制，
+  // 避免经由硬链接把项目根 node_modules 的 Node ABI 版本也改掉（后续本机 next build 还要用）。
+  const replaced = [];
+  const dotNextNM = join(standalone, ".next", "node_modules");
+  if (existsSync(dotNextNM)) {
+    for (const name of readdirSync(dotNextNM)) {
+      if (!name.startsWith("better-sqlite3")) continue;
+      const target = join(dotNextNM, name, "build", "Release", "better_sqlite3.node");
+      if (!existsSync(target)) continue;
+      const real = realpathSync(target);
+      if (real === realpathSync(node)) {
+        // mac：副本目录是指回顶层 node_modules/better-sqlite3 的符号链接，顶层刚换过 = 这份已是 Electron ABI
+        replaced.push(`${target}（链接指向顶层，已随顶层替换）`);
+        continue;
+      }
+      rmSync(real);
+      copyFileSync(node, real);
+      replaced.push(`${target}${real !== target ? ` → ${real}` : ""}`);
+    }
+  }
+  if (replaced.length === 0) {
+    // 副本必须存在且被替换：Next 16 的 standalone 一定会为 serverExternalPackages 生成这份拷贝，
+    // 找不到多半意味着目录结构变了/扫描失效，直接中止打包，绝不再发 DB 路由必挂的包（issue #12）。
+    throw new Error(`未在 ${dotNextNM} 找到 better-sqlite3 副本，无法确认 Electron ABI 替换完整，打包中止`);
+  }
+  console.log(`✓ standalone better-sqlite3 已切到 Electron ABI（含 ${replaced.length} 份 .next 内副本），打包 App 的 DB 路由可用`);
+  for (const p of replaced) console.log(`  ↳ 已替换副本: ${p}`);
 }
 
 console.log("standalone 资源补齐完成");
