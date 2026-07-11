@@ -51,7 +51,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const [comp] = await db
     .select({ bgmPath: compositions.bgmPath })
     .from(compositions)
-    .where(eq(compositions.projectId, id))
+    // latest *successful* composition — a failed retry on top must not hide the real BGM provenance
+    .where(and(eq(compositions.projectId, id), eq(compositions.status, "done")))
     .orderBy(desc(compositions.createdAt))
     .limit(1);
   if (comp?.bgmPath) {

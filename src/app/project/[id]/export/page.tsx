@@ -285,8 +285,9 @@ export default function ExportPage() {
     (async () => {
       setLoading(true);
       try {
+        // list *successful* compositions (a failed retry on top must not blank this page)
         const [compRes, projRes, scriptsRes] = await Promise.all([
-          fetch(`/api/project/${id}/compose`),
+          fetch(`/api/project/${id}/compositions`),
           fetch(`/api/project/${id}`),
           fetch(`/api/project/${id}/scripts`),
         ]);
@@ -305,7 +306,8 @@ export default function ExportPage() {
         }
         if (compRes.ok) {
           const data = await compRes.json();
-          if (!cancelled && data.composition) setComposition(data.composition);
+          const latestDone = Array.isArray(data.compositions) ? data.compositions[0] : null;
+          if (!cancelled && latestDone) setComposition(latestDone);
         }
         if (scriptsRes.ok) {
           const arr = await scriptsRes.json();
@@ -350,8 +352,8 @@ export default function ExportPage() {
     };
   }, [composition?.url]);
 
-  // multi-platform export state: platformId → { status, url }
-  const [platformExports, setPlatformExports] = useState<Record<string, { status: "idle" | "exporting" | "done" | "error"; url?: string }>>({});
+  // multi-platform export state: platformId → { status, url, report }
+  const [platformExports, setPlatformExports] = useState<Record<string, { status: "idle" | "exporting" | "done" | "error"; url?: string; report?: { withinCap: boolean; message: { zh: string; en: string } } | null }>>({});
   const exportPlatform = async (platformId: string) => {
     setPlatformExports((prev) => ({ ...prev, [platformId]: { status: "exporting" } }));
     try {
@@ -362,7 +364,7 @@ export default function ExportPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("exportFailed"));
-      setPlatformExports((prev) => ({ ...prev, [platformId]: { status: "done", url: data.url } }));
+      setPlatformExports((prev) => ({ ...prev, [platformId]: { status: "done", url: data.url, report: data.report ?? null } }));
     } catch (e) {
       setPlatformExports((prev) => ({ ...prev, [platformId]: { status: "error" } }));
       showToast(e instanceof Error ? e.message : t("exportFailed"));
@@ -637,12 +639,20 @@ export default function ExportPage() {
                       <p>{t("resolutionLabel", { resolution: platform.resolution })}</p>
                     </div>
                     {ex.status === "done" && ex.url ? (
-                      <a href={`${ex.url}?download=1`} download>
-                        <Button variant="outline" size="sm" className="w-full mt-2 text-xs text-emerald-600">
-                          <LuDownload className="w-3 h-3 mr-1" />
-                          {t("downloadPlatform", { platform: platformName })}
-                        </Button>
-                      </a>
+                      <>
+                        <a href={`${ex.url}?download=1`} download>
+                          <Button variant="outline" size="sm" className="w-full mt-2 text-xs text-emerald-600">
+                            <LuDownload className="w-3 h-3 mr-1" />
+                            {t("downloadPlatform", { platform: platformName })}
+                          </Button>
+                        </a>
+                        {ex.report && (
+                          <p className={`mt-1.5 text-[11px] leading-snug ${ex.report.withinCap ? "text-emerald-600" : "text-amber-600"}`}>
+                            {ex.report.withinCap ? "✓ " : "⚠ "}
+                            {locale === "en" ? ex.report.message.en : ex.report.message.zh}
+                          </p>
+                        )}
+                      </>
                     ) : (
                       <Button
                         variant="outline"

@@ -10,16 +10,30 @@ export interface PlatformSpec {
   w: number;
   h: number;
   ratio: string;
+  /**
+   * Platform recompression threshold in kbps (total file bitrate). Uploads above this line get
+   * force-transcoded by the platform ("second compression"), which visibly softens AI-composed
+   * footage. Values are community-measured / official-recommendation figures (recorded 2026-07),
+   * NOT official hard limits — keep them maintainable here as encoding targets with headroom.
+   */
+  maxVideoKbps: number;
+  /** Frame-rate ceiling; exports above this are downsampled (higher fps wastes the bitrate budget). */
+  maxFps: number;
 }
 
 export const PLATFORM_SPECS: Record<string, PlatformSpec> = {
-  douyin: { name: "抖音", w: 1080, h: 1920, ratio: "9:16" },
-  kuaishou: { name: "快手", w: 1080, h: 1920, ratio: "9:16" },
-  xiaohongshu: { name: "小红书", w: 1080, h: 1440, ratio: "3:4" },
-  shipinhao: { name: "视频号", w: 1080, h: 1920, ratio: "9:16" },
-  tiktok: { name: "TikTok Shop", w: 1080, h: 1920, ratio: "9:16" },
-  reels: { name: "Instagram Reels", w: 1080, h: 1920, ratio: "9:16" },
-  shorts: { name: "YouTube Shorts", w: 1080, h: 1920, ratio: "9:16" },
+  // douyin: community tests report forced transcode above ~6000 kbps at 1080P (知乎实测, 2026-07)
+  douyin: { name: "抖音", w: 1080, h: 1920, ratio: "9:16", maxVideoKbps: 6000, maxFps: 60 },
+  // kuaishou / xiaohongshu / shipinhao: community consensus ≤8 Mbps at 1080P (2026-07)
+  kuaishou: { name: "快手", w: 1080, h: 1920, ratio: "9:16", maxVideoKbps: 8000, maxFps: 60 },
+  xiaohongshu: { name: "小红书", w: 1080, h: 1440, ratio: "3:4", maxVideoKbps: 8000, maxFps: 60 },
+  shipinhao: { name: "视频号", w: 1080, h: 1920, ratio: "9:16", maxVideoKbps: 8000, maxFps: 60 },
+  // tiktok: community tests show noticeable recompression above ~8-10 Mbps; conservative 8000
+  tiktok: { name: "TikTok Shop", w: 1080, h: 1920, ratio: "9:16", maxVideoKbps: 8000, maxFps: 60 },
+  // reels: Instagram officially recommends ~5 Mbps for 1080p/30
+  reels: { name: "Instagram Reels", w: 1080, h: 1920, ratio: "9:16", maxVideoKbps: 5000, maxFps: 60 },
+  // shorts: YouTube officially recommends 8 Mbps for 1080p SDR 30fps
+  shorts: { name: "YouTube Shorts", w: 1080, h: 1920, ratio: "9:16", maxVideoKbps: 8000, maxFps: 60 },
 };
 
 /** Get the spec for a given platform; returns undefined for unknown platforms. */

@@ -36,7 +36,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const [comp] = await db
     .select()
     .from(compositions)
-    .where(compositionId ? and(eq(compositions.projectId, id), eq(compositions.id, compositionId)) : eq(compositions.projectId, id))
+    // default to the latest *successful* composition — a failed retry on top must not hide a good take
+    .where(compositionId ? and(eq(compositions.projectId, id), eq(compositions.id, compositionId)) : and(eq(compositions.projectId, id), eq(compositions.status, "done")))
     .orderBy(desc(compositions.createdAt))
     .limit(1);
   if (!comp?.outputPath || comp.status !== "done") {

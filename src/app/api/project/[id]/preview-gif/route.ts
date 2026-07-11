@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { join } from "path";
 import { existsSync } from "fs";
 import { getDb } from "@/lib/db";
@@ -29,7 +29,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const [comp] = await db
     .select()
     .from(compositions)
-    .where(eq(compositions.projectId, id))
+    // latest *successful* composition — a failed retry on top must not hide a good take
+    .where(and(eq(compositions.projectId, id), eq(compositions.status, "done")))
     .orderBy(desc(compositions.createdAt))
     .limit(1);
   if (!comp?.outputPath || comp.status !== "done") {

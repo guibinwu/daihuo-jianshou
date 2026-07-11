@@ -7,16 +7,16 @@ describe("platform-specs（多平台导出规格）", () => {
   });
 
   it("视频号 = 1080x1920 竖屏 9:16（微信生态域内平台）", () => {
-    expect(getPlatformSpec("shipinhao")).toEqual({ name: "视频号", w: 1080, h: 1920, ratio: "9:16" });
+    expect(getPlatformSpec("shipinhao")).toMatchObject({ name: "视频号", w: 1080, h: 1920, ratio: "9:16" });
   });
 
   it("TikTok Shop = 1080x1920 竖屏 9:16", () => {
-    expect(getPlatformSpec("tiktok")).toEqual({ name: "TikTok Shop", w: 1080, h: 1920, ratio: "9:16" });
+    expect(getPlatformSpec("tiktok")).toMatchObject({ name: "TikTok Shop", w: 1080, h: 1920, ratio: "9:16" });
   });
 
   it("Reels / Shorts 与 TikTok 同为 9:16 1080×1920（跨发同一条竖屏片，按平台命名导出）", () => {
-    expect(getPlatformSpec("reels")).toEqual({ name: "Instagram Reels", w: 1080, h: 1920, ratio: "9:16" });
-    expect(getPlatformSpec("shorts")).toEqual({ name: "YouTube Shorts", w: 1080, h: 1920, ratio: "9:16" });
+    expect(getPlatformSpec("reels")).toMatchObject({ name: "Instagram Reels", w: 1080, h: 1920, ratio: "9:16" });
+    expect(getPlatformSpec("shorts")).toMatchObject({ name: "YouTube Shorts", w: 1080, h: 1920, ratio: "9:16" });
   });
 
   it("抖音/快手 9:16，小红书 3:4", () => {

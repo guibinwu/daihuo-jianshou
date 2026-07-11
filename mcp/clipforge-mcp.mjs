@@ -391,6 +391,19 @@ const TOOLS = [
     },
   },
   {
+    name: "clipforge_export_platform",
+    description:
+      "把某项目最新成片按目标平台规格导出（后处理重编码，不改合成管线）：按平台画幅模糊填充重构图 + 码率卡在平台二压线内（CRF+VBV 双约束，抖音 6000kbps / Reels 5000 / 其余 8000，社区经验值）+ 导出后 ffprobe 实测回读，返回「实测码率 vs 平台线」双语报告（report.withinCap 表示预计可免平台二次压缩变糊）。支持 douyin|kuaishou|xiaohongshu|shipinhao|tiktok|reels|shorts。需先合成过视频。不需要 LLM。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "项目 ID" },
+        platform: { type: "string", enum: ["douyin", "kuaishou", "xiaohongshu", "shipinhao", "tiktok", "reels", "shorts"], description: "目标平台" },
+      },
+      required: ["projectId", "platform"],
+    },
+  },
+  {
     name: "clipforge_qc",
     description:
       "对某项目最新成片跑自动质检（后处理，不改合成管线）：流完整性/时长/分辨率校验 + 黑屏(blackdetect)/长静音(silencedetect)/响度漂移(EBU R128 对 -14 LUFS)/画面冻结检测，返回结构化双语报告（status: ok|warn|fail + 逐项 checks）。批量出片后发布前把关用：fail 的片子别直接发。需先合成过视频。不需要 LLM。",
@@ -792,6 +805,16 @@ async function handleQc(args) {
   return ok({ ok: res.status !== "fail", projectId, compositionId: res.compositionId ?? null, status: res.status, checks: res.checks ?? [] });
 }
 
+// Platform export with anti-recompression bitrate cap + measured-vs-line report
+async function handleExportPlatform(args) {
+  const projectId = String(args.projectId || "").trim();
+  if (!projectId) throw new Error("projectId 不能为空");
+  const platform = String(args.platform || "").trim();
+  if (!platform) throw new Error("platform 不能为空");
+  const res = await api(`/api/project/${projectId}/export-platform`, { method: "POST", body: { platform } });
+  return ok({ ok: true, projectId, platform, platformName: res.platformName, url: res.url, size: res.size, report: res.report ?? null });
+}
+
 // Asset license manifest (per-shot provenance + commercial-risk flags + attribution lines)
 async function handleCredits(args) {
   const projectId = String(args.projectId || "").trim();
@@ -863,6 +886,7 @@ const HANDLERS = {
   clipforge_cover: handleCover,
   clipforge_shop_qr: handleShopQr,
   clipforge_end_card: handleEndCard,
+  clipforge_export_platform: handleExportPlatform,
   clipforge_qc: handleQc,
   clipforge_credits: handleCredits,
   clipforge_native_feel: handleNativeFeel,
